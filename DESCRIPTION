@@ -13,4 +13,6 @@ URL: https://github.com/koefoeden/familyStudyPackage
 BugReports: https://github.com/koefoeden/familyStudyPackage/issues
 Depends: 
     here,
+    testthat,
     tidyverse
+Config/testthat/edition: 3

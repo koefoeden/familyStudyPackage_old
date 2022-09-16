@@ -1,0 +1,19 @@
+```{r}
+top_50_most_common_phenotypes()
+```
+
+```{r}
+search_for_phenotype("res")
+```
+
+
+```{r}
+
+
+combined_pheno_data <- get_combined_pheno_data()
+combined_pheno_data %>% 
+  select(ISI, insres_status) %>%
+  ggplot(aes(x=ISI, color=insres_status)) +
+  geom_histogram()
+```
+

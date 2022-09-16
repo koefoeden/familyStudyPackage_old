@@ -4,7 +4,7 @@
 \alias{make_salmon_metadata}
 \title{Construct a corresponding meta data tibble from the salmon count matrix}
 \usage{
-make_salmon_metadata(rna_counts)
+make_salmon_metadata()
 }
 \arguments{
 \item{rna_counts}{}

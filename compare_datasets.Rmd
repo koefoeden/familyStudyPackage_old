@@ -3,7 +3,7 @@
 library(VennDiagram)
 library(vcfR)
 library(ggvenn)
-pheno_data <- read_delim("FamilyStudy_PhenoData_13092022.csv")
+pheno_data <- read_delim("data-raw/FamilyStudy_PhenoData_13092022.csv")
 
 projects <- c(6, 41, 45) %>% set_names()
 ```
@@ -26,8 +26,10 @@ participants_per_project <- map(projects, ~pheno_data %>%
                                 unique())
 
 # the RNA seq data
-rna_counts <- load_rna_counts()
-participants_rna_seq <- make_salmon_metadata(rna_counts) %>% pull(sourceId) %>% list() %>% set_names("rna_seq")
+participants_rna_seq <- make_salmon_metadata() %>% 
+  pull(sourceId) %>% 
+  list() %>% 
+  set_names("rna_seq")
 
 # result
 participants_per_project_w_rna_seq <- c(participants_per_project,participants_rna_seq)

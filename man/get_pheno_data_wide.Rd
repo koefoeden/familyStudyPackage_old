@@ -7,7 +7,7 @@
 get_pheno_data_wide()
 }
 \value{
-A wide phenomics metadata table
+A wide, deudpped phenomics platform tibble
 }
 \description{
 Loads and converts the long phenomics metadata to wide format, fixing datatypes
