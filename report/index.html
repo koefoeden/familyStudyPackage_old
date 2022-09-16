@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
+<title>BGI Bioinformatics Report for Pure-sequencing Project</title>
+<link href="css/report.css" rel="stylesheet" type="text/css">
+<script language="javascript" src="js/jquery.js"></script>
+<script language="javascript" src="js/report.js"></script>
+</head>
+<body>
+<div class="header">
+  <div class="flleft logo_title">
+     <div class="img_com logo"></div>
+     <div class="title">BGI Bioinformatics Report for Transcriptome Resequencing Pure-sequencing Project</div>
+  </div>
+  <div class="head_right">
+    
+  </div>
+</div>
+<div class="bg_bar nav_bg">
+  <ul class="nav_ul">
+    <li><a href="javascript:void(0);" onClick="con_page.location.hash='1';">Data Production</a></li> <li class="bg_bar line"></li>
+    <li>
+       <a href="javascript:void(0);" onClick="window.con_page.location.hash='2';">Data Quality Control</a>
+       <ul class="nav_drop"> <li onClick="con_page.location.hash='2.1';"><a href="javascript:void(0);">1 The composition of bases and Quality of sequencing</a></li>
+          <li class="line1"></li>         <li class="line1"></li>
+       </ul>       
+    </li>   <li class="bg_bar line"></li>    
+    <li>
+      <a href="javascript:void(0);" onClick="con_page.location.hash='3';">Help Manual</a>
+       <ul class="nav_drop">
+          <li onClick="con_page.location.hash='3.1';"><a href="javascript:void(0);">1.Pipeline of Experiment</a></li>
+		  <li onClick="con_page.location.hash='3.2';"><a href="javascript:void(0);">2.Raw sequence data</a></li>
+		  <li onClick="con_page.location.hash='3.3';"><a href="javascript:void(0);">3.Column description for data production</a></li>
+		  
+       </ul>       
+    </li>
+    <li class="bg_bar line"></li>             
+  </ul>
+  <div class="seq_top"></div>  
+  <ul class="tool_ul"><li class=download><a href="report.pdf">Download PDF</a></li>
+  </ul>
+</div>
+  <iframe src="left.html" name="left_page" id="left_page" class="seq_contentl" frameborder="0"></iframe> 
+  <div class=seq_contentc></div>  
+  <iframe src="content.html" name="con_page" id="con_page" class="seq_cn" frameborder="0"></iframe>
+  <div class=seq_foot>
+     <div class=seq_footl><span class="foot_logo"></span><span class=foot_text>2012 Copyright BGI All Rights Reserved</span><span>粤ICP备 10059378</span></div>
+    <div class=seq_footr><span class=foot_text>Technical Support E-mail:tech@bgitechsolutions.com</span><span>Website:www.bgitechsolutions.com</span></div>
+  </div>    
+</body>
+</html>

@@ -1,0 +1,400 @@
+---
+title: "Transcriptome analysis of the Family Study"
+author: 
+- "Analysis by Thomas Gade Koefoed"
+- "Research assistant, Hansen Group"
+- "Novo Nordisk Foundation Center For Basic Metabolic Research"
+- "thomas.koefoed@sund.ku.dk"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+   html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+    df_print: kable
+params:
+  genome: human
+  genes: NCBI
+  tissue: fat
+editor_options:
+  chunk_output_type: inline
+---
+
+<hr style="height:7px;border-width:0;background-color:#F9F5EF">
+
+<br>
+
+# Pre-processing {.tabset}
+
+All code used for the analyses can be found throughout this report by expanding the code-blocks in the .html-file on the right-hand side within the appropriate tabs, or through the associated .Rmd file, where it can also be run. You will have to install all the necessary packages yourself though, which can be non-trivial.
+
+## Setup
+```{r setup, warning=FALSE, message=FALSE, results="hide"}
+full_script_name <- rstudioapi::getSourceEditorContext()$path
+script_name <- basename(full_script_name)
+data_dir <- paste0(tools::file_path_sans_ext(full_script_name),"_data/")
+dir.create(data_dir, showWarnings = F)
+
+knitr::opts_chunk$set(cache=F)
+
+suppressPackageStartupMessages({
+  # library(conflicted)
+  library('biomaRt') # downloading gene data
+  library("DT") # for pretty printing of paged tables
+  library("limma") # differential expression analysis
+  library("edgeR") # differential expression analysis
+  library("DESeq2") # differential expression analysis
+  library("here") # Better structure and relative paths
+  library("GO.db") # downloading gene data
+  
+  if(params$genome == "human") {library("org.Hs.eg.db")
+  } else if (params$genome == "mouse") {library("org.Mm.eg.db")
+  } else if (params$genome == "rat") {library("org.Rn.eg.db")}
+  
+  library("AnnotationDbi")
+  library("ggrepel") 
+  library("here") # better path management
+  library("cbmr") # in-house convenience functions
+  library("tidyverse") # general data manipulation
+})
+
+here::i_am("README.txt")
+source(here("R/analysis_functions.R"))
+theme_set(theme_bw())
+conflict_prefer_all("tidyverse", losers = NULL, quiet = FALSE)
+
+meta_variables <- c("Tissue", "Tissue_fixed", "Family", "Type")
+```
+
+## Project specific data loading and formattings {.tabset}
+### Load Salmon data
+```{r}
+salmon_rna_counts <- load_rna_counts()
+salmon_rna_counts
+```
+
+### Create metadata framework from Salmon data
+```{r}
+
+
+salmon_metadata_all <- make_salmon_metadata(rna_counts = salmon_rna_counts)
+salmon_metadata_single_tissue <- salmon_metadata_all %>% 
+  filter(Tissue_fixed == params$tissue)
+
+head(salmon_metadata_single_tissue)
+```
+
+### Combine metadata with phenomics metadata
+```{r}
+phenomics_meta_data <- readRDS("phenomics_meta_data.RDS")
+
+meta_data_sheet_all <- metadata_tibble %>% 
+  inner_join(phenomics_meta_data) %>% 
+  select(-Salmon.ID) %>% 
+  relocate(sourceId, .after=Sample.ID)
+
+meta_data_sheet_all
+```
+
+## DGE list creation for all samples
+
+```{r, message = FALSE, class.source = 'fold-show'}
+colnames(rna_counts) <- 1:272
+rna_counts_w_metadata <- rna_counts[,as.character(meta_data_sheet_all$Sample.ID)]
+y_all <- DGEList(rna_counts_w_metadata, 
+                 samples=meta_data_sheet_all)
+
+log_cpm_all <- cpm(y_all, log=T) 
+log_cpm_df_all <- log_cpm_all %>% as.data.frame() %>%  
+  rownames_to_column("Name")
+
+cpm_all <- cpm(y_all) 
+cpm_df_all <- cpm_all %>% as.data.frame() %>%  
+  rownames_to_column("Name")
+
+
+design_all <-  model.matrix(~bmi, data=y_all$samples)
+
+idx_expressed_all <- filterByExpr(y_all, design = design_all)
+
+
+# subset by expressed genes and samples with the metadata
+y_all <- y_all[idx_expressed_all, !is.na(meta_data_sheet_all[["bmi"]])] %>% 
+  calcNormFactors() %>% 
+  estimateDisp(design=design_all)
+```
+
+## Get gene info and print
+
+```{r, class.source = 'fold-show'}
+# download new database
+# ensembl <- useMart("ensembl")
+# ensembl <-  useDataset("rnorvegicus_gene_ensembl",mart=ensembl)
+# saveRDS(ensembl, here("shared_data/rat_mart.RDS"))
+
+# Get Description, external gene name via Ensembl/biomaRt
+mart <-  readRDS(file = if (params$genome=="mouse") here("shared_data/mouse_mart.RDS")
+                 else if (params$genome=="human") here("shared_data/human_mart.RDS")
+                 else if (params$genome=="rat") here("shared_data/rat_mart.RDS"))
+
+
+gene_info_list<- getBM(filters= case_when(params$genes=="NCBI" ~"entrezgene_accession",
+                                          params$genes=="ENSEMBL" ~ "ensembl_gene_id"), 
+                       attributes= c("entrezgene_accession", "ensembl_gene_id","description"),
+                       values=rownames(y_all),
+                       mart=mart) %>% 
+  dplyr::rename("Name"=entrezgene_accession, 
+                "ENSEMBL_ID"=ensembl_gene_id)
+
+write_tsv(x = log_cpm_df_all, file=paste0(data_dir, "log_CPM_values_by_sample.tsv"))
+```
+
+## Session info
+
+```{r}
+sessionInfo()
+```
+
+# Assesment of data quality {.tabset}
+```{r}
+n_samples <- nrow(meta_data_sheet_all)
+n_genes <-nrow(y_all)
+n_counts_per_sample <- colSums(rna_counts)
+n_counts_total <-  sum(n_counts_per_sample)
+n_counts_per_gene_per_sample <- (n_counts_total/n_genes)/n_samples
+```
+
+From the sequencing, we obtain `r I(n_genes)` genes that are expressed in a appreciable amount across the samples to be used for our downstream analyses. With a final, filtered transcript count of `r I(round(n_counts_total/1E+06))` million across the `r I(n_samples)` samples, we have an average of `r I(round(n_counts_per_gene_per_sample))` RNA-transcripts for each gene in each sample.
+
+Check out the tabs below to see various QC-visualizations of the data:
+
+## Multiple dimensional scaling (MDS) heatmap
+
+The image below shows a heatmap of the log-normalized distances between each possible sample-pair with more similar pairs having negative values, and less similar pairs having positive values.
+
+```{r}
+annotation_col_df <-  dplyr::select(meta_data_sheet_all, all_of(meta_variables[c(1,2)]))
+rownames(annotation_col_df) <- meta_data_sheet_all$Sample.ID
+
+annotation_row_df <-  dplyr::select(meta_data_sheet_all, all_of(meta_variables[c(3,4)]))
+rownames(annotation_row_df) <- meta_data_sheet_all$Sample.ID
+
+plot_sample_heatmap(log_cpm_all,
+                    method="MDS",
+                    labels_col = meta_data_sheet_all$Sample.ID,
+                    labels_row = meta_data_sheet_all$Sample.ID,
+                    annotation_col = annotation_col_df,
+                    annotation_row = annotation_row_df,
+                    display_numbers=F,
+                    fontsize_number=6,
+                    main="Multiple dimensional scaling (MDS) heatmap"
+)
+```
+
+## MDS 2D-plot {.tabset}
+
+The figures below show the location of the samples in reduced 2-dimensional space.
+
+### Dimensions 1 & 2 {.tabset}
+#### Both
+```{r}
+mds_plots <- lapply(meta_variables, 
+                    FUN = function(meta_variable) {
+                      cbmr:::ggplot_mds_repel(y = y_all, dims = c(1,2), color_by = meta_variable)}) %>% 
+  setNames(meta_variables)
+
+for(i in names(mds_plots)){
+  cat("\n") 
+  cat("#### Colored by", i, "\n") # Create second level headings with the names.
+  print(mds_plots[[i]])
+  
+  cat("\n")
+}
+```
+
+
+### Dimensions 3 & 4 {.tabset}
+
+```{r, results="asis"}
+mds_plots_dim_3_4 <- purrr::map(meta_variables,
+                                ~ggplot_mds_repel(y = y_all, dims = c(3,4), 
+                                                  color_by = .)) %>% 
+  setNames(meta_variables)
+
+for(i in names(mds_plots_dim_3_4)){
+  cat("\n") 
+  cat("#### Colored by", i, "\n") # Create second level headings with the names.
+  print(mds_plots_dim_3_4[[i]])
+  
+  cat("\n")
+}
+```
+
+## MA plots
+
+The plots below show the log2-fold change in gene expression for all genes in each sample, compared to the rest of the samples.
+
+```{r}
+ggplot_MD(y_all, ncol=4)
+```
+
+## Raw gene counts
+Table of 100 most outlying genes (measured in terms of log2FC in a sample compared to other samples), and the corresponding transcript counts within the samples.
+```{r}
+MD_plot_data <- get_MD_data_for_all_samples(y_all)
+top_100_diff_genes <- MD_plot_data %>% 
+  arrange(desc(Diff)) %>% 
+  distinct(Gene, .keep_all = T) %>% 
+  head(100)
+
+y_all[top_100_diff_genes$Gene, ]$counts %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = "Gene") %>% 
+  left_join(top_100_diff_genes[c("Sample", "Gene")], by=c("Gene"="Gene")) %>% 
+  relocate(Sample, .after = Gene) %>% 
+  mutate(across(where(is.numeric), round)) %>% 
+  DT::datatable(options = list(scrollX = TRUE))
+```
+
+
+# Analysis Code {.tabset}
+
+## EdgeR all
+
+```{r}
+colnames(design_all) <- make.names(colnames(design_all))
+
+contrast_matrix_all <- makeContrasts(bmi=bmi,
+                                     levels=design_all)
+
+fit_all <- glmQLFit(y_all, design = design_all, robust = TRUE)
+
+contrasts <- colnames(contrast_matrix_all)
+DE_genes_test_all <- contrasts %>% 
+  set_names() %>% 
+  purrr::map(~edgeR_tester(contrast_matrix = contrast_matrix_all, 
+                           contrast=.x, efit = fit_all, 
+                           id_name = "Gene"))
+
+DE_genes_test_all_w_info <- DE_genes_test_all %>% 
+  map(~dplyr::left_join(., y=gene_info_list, 
+                        by= if(params$genes=="NCBI") c("Gene"="Name") 
+                        else c("Gene"="ENSEMBL_ID"),
+                        all.x=T))
+```
+
+## GO all
+
+```{r, message=FALSE, class.source = 'fold-show'}
+GO_terms_all <- 
+  get_enrichment_terms(org_db = 
+                         if (params$genome == "human") {org.Hs.eg.db
+                         } else if (params$genome=="mouse") {org.Mm.eg.db
+                         } else if (params$genome=="rat") {org.Rn.eg.db},
+                       gene_ids = rownames(y_all), gene_id_key_type = "SYMBOL",
+                       min_genes = 5, max_genes = 500, )$BP
+
+ontology_tests_all <- run_ontology_tests(GO_terms_all, 
+                                         y_all, 
+                                         contrast_matrix = contrast_matrix_all, 
+                                         fun=limma::camera)
+
+
+# left join this table to the GO-results table by GO-ID
+for (contrast in names(ontology_tests_all)) {
+  ontology_tests_all[[contrast]] %>% 
+    left_join(gene_names_list, by = "ID") %>% 
+    write_tsv(file=paste0(data_dir,contrast,"_GO_analysis.tsv"))
+}
+```
+
+
+# Results
+
+## Summary
+We modeled the gene expression in the samples using only the knockdown or control treatment. Below, you can see a small overview of the results.
+
+```{r, warning=F}
+summary_table <- map(list("Differentially expressed genes (FDR < 5%)"=DE_genes_test_all_w_info, 
+                          "Enriched GO-terms (FDR < 5%)"=ontology_tests_all), 
+                     n_sig_genes_pr_contrast) %>% 
+  bind_rows(.id="Analysis") %>% knitr::kable()
+summary_table
+```
+
+In the following sections, you can see the results in more detail, and filter rows in the tables as you wish by directly interacting with the tables. Similarly, you can search for specific genes or GO-terms, limit the data-ranges and download the data as excel and csv-files. (Copies of the full tables are already found in the corresponding data directory, since searching in the full tables here can be a bit slow).
+
+The gene ontology analysis investigates if the genes associated with the corresponding GO-term are found to be preferentially over or under expressed, which results in the GO-term being labeled Up or Down respectively. Specifically, the Camera test is used - see <https://doi.org/10.1093/nar/gks461> for more info.
+
+## bmi {.tabset}
+### Differential gene expression analysis {.tabset}
+#### Significant genes (FDR<0.05)
+```{r, cache=FALSE, warning=FALSE}
+DE_genes_test_all_w_info[["bmi"]] %>% 
+  dplyr::filter(FDR<0.05) %>% 
+  get_DE_datatable(type = "edgeR")
+```
+
+#### All genes (FDR<0.05)
+```{r, warning=FALSE}
+DE_genes_test_all_w_info[["bmi"]] %>% 
+  get_DE_datatable(type = "edgeR")
+```
+#### Volcano plot
+```{r}
+DE_genes_test_all_w_info[["bmi"]] %>%
+  ggplot_volcano(type="edgeR")
+```
+
+### GO-term analysis {.tabset}
+#### Significant GO-terms (FDR<0.5)
+```{r}
+ontology_tests_all[["bmi"]] %>% 
+  filter(FDR<0.05) %>%
+  get_GO_datatable()
+```
+#### All GO-terms
+```{r, warning=F}
+ontology_tests_all[["bmi"]] %>%
+  get_GO_datatable()
+```
+
+# Raw CPM Visualizations
+## Format data
+```{r}
+cpm_df_all
+cpm_transposed <- as_tibble(cbind(nms = names(cpm_df_all), t(cpm_df_all)))
+cpm_transposed_formatted <- cpm_transposed %>% 
+  janitor::row_to_names(1) %>% 
+  mutate(across(1:last_col(), as.numeric))
+
+meta_data_sheet_w_RNA_seq <- meta_data_sheet_all %>% 
+  left_join(cpm_transposed_formatted, by=c("Sample.ID"="Name"))
+
+
+```
+
+## Plot
+### BMI and leptin
+```{r}
+meta_data_sheet_w_RNA_seq %>% 
+  ggplot(aes(x=bmi, y=LEP)) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~sex)
+
+meta_data_sheet_w_RNA_seq %>% 
+  ggplot(aes(x=LEP, y=leptin)) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~sex)
+
+meta_data_sheet_w_RNA_seq %>% 
+  ggplot(aes(x=bmi, y=leptin)) +
+  geom_point() +
+  geom_smooth() + 
+  facet_wrap(~sex)
+```
+```
+

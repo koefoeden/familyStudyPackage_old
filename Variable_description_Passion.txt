@@ -1,0 +1,57 @@
+variabel;alternativ;enhed;beskrivelse;bemærk
+height;højdecm;cm;Height  in cm;
+bmi;;;BMI value;
+whratio;wh;;waist/hip ratio;
+pulssidd;;;Pulse  sitting;
+pulsligg;;;Pulse laying;
+glumin5;;mmol/l;Plasma glucose 5 min;divider med 10
+pglu0;glu0;mmol/l;Plasma glucose start;divider med 10
+pglu15;glu15;mmol/l;Plasma glucose 15 minutes OGTT;divider med 10
+pglu30;glu30;mmol/l;Plasma glucose 30 minutes OGTT;divider med 10
+pglu45;glu45;mmol/l;Plasma glucose 45 minutes OGTT;divider med 10
+pglu60;glu60;mmol/l;Plasma glucose 60 minutes OGTT;divider med 10
+pglu90;glu90;mmol/l;Plasma glucose 90 minutes OGTT;divider med 10
+pglu120;glu120;mmol/l;Plasma glucose 120 minutes OGTT;divider med 10
+pglu180;glu180;mmol/l;Plasma glucose 180 minutes OGTT;divider med 10
+hgb;;mmol/l;Haemaglobin concentration;
+se_kreat;;mmol/l;Serum creatinin;måles normalt i umol/l
+se_na;;mmol/l;Serum natrium conc.;
+se_kaliu;;mmol/l;Serum kalium conc.;
+se_ca;;mmol/l;Serum calcium conc.;
+se_album;;mmol/l;Serun albumin conc.;
+se_trigl;;mmol/l;Serum triglycerid conc.;
+se_kol;;mmol/l;Serum cholestorol conc.;
+se_hdl;;mmol/l;Serum hdl conc.;
+se_ldl;;mmol/l;Serum ldl conc.;
+se_vldl;;mmol/l;Serum vldl conc.;
+who98_6K;;;Code for diabetes 1=NGT, 2=IFG, 3=IGT, 4=new DM, 5=Known DM, 6=undetermined;
+systsid1;;mmHg;Systolic blood pressure, sitting 1;
+systsid2;;mmHg;Systolic blood pressure, sitting 2;
+diassid1;;mmHg;Diastolic blood pressure, sitting 1;
+diassid2;;mmHg;Diastolic blood pressure, sitting 2;
+systlig1;;mmHg;Systolic blood pressure, laying 1;
+systlig2;;mmHg;Systolic blood pressure, laying 2;
+systlig3;;mmHg;Systolic blood pressure, laying  3;
+diaslig1;;mmHg;Diastolic blood pressure, laying 1;
+diaslig2;;mmHg;Diastolic blood pressure, laying 2;
+diaslig3;;mmHg;Diastolic blood pressure, laying 3;
+glukdato;;;Date for glucose measurements;
+cpep5min;;pmol/l;C-peptide after 5 minutes;divider med 10
+cp0;cpep0;pmol/l;C-peptide 0 minutes;divider med 10
+cp30;cpep30;pmol/l;C-peptide 30 minutes OGTT;divider med 10
+cp60;cpep60;pmol/l;C-peptide 60 minutes OGTT;divider med 10
+cp90;cpep90;pmol/l;C-peptide 90 minutes OGTT;divider med 10
+cp120;cpep120;pmol/l;C-peptide 120 minutes OGTT;divider med 10
+cp_fa;cpep_fa;pmol/l;C-peptide fasting;divider med 10
+ins5min;;pmol/l;Insulin after 5 minutes;divider med 10
+insu0;ins0;pmol/l;Insulin 0 minutes;divider med 10
+insu30;ins30;pmol/l;Insulin 30 minutes OGTT;divider med 10
+insu60;ins60;pmol/l;Insulin 60 minutes OGTT;divider med 10
+insu90;ins90;pmol/l;Insulin 90 minutes OGTT;divider med 10
+insu120;ins120;pmol/l;Insulin 120 minutes OGTT;divider med 10
+ins_fa;;pmol/l;Insulin fasting;divider med 10
+dm_class;;;Diabetes class 1=type 1 , 2= type 2;
+sex;;;Gender, 1=man, 2=woman;
+hip;hofte;cm;Hip;
+waist;talje;cm;Waist;
+weight;vægtkg;kg;Weight in kg;

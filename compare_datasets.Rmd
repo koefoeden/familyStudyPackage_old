@@ -1,0 +1,48 @@
+# Setup
+```{r}
+library(VennDiagram)
+library(vcfR)
+library(ggvenn)
+pheno_data <- read_delim("FamilyStudy_PhenoData_13092022.csv")
+
+projects <- c(6, 41, 45) %>% set_names()
+```
+
+# VennDiagrams of shared phenotype variables
+```{r}
+phenotypes_per_project <- map(projects, ~pheno_data %>% 
+                                filter(projectId==.x) %>% 
+                                pull(phenoVariable) %>% 
+                                unique())
+
+ggvenn(phenotypes_per_project)
+```
+# VennDiagrams of shared participants
+```{r}
+# The three family studies
+participants_per_project <- map(projects, ~pheno_data %>% 
+                                filter(projectId==.x) %>% 
+                                pull(sourceId) %>% 
+                                unique())
+
+# the RNA seq data
+rna_counts <- load_rna_counts()
+participants_rna_seq <- make_salmon_metadata(rna_counts) %>% pull(sourceId) %>% list() %>% set_names("rna_seq")
+
+# result
+participants_per_project_w_rna_seq <- c(participants_per_project,participants_rna_seq)
+ggvenn(participants_per_project_w_rna_seq)
+```
+# Duplicate rows? 
+```{r}
+pheno_data %>% distinct(sourceId, phenoVar_id, phenoVariable, result)
+```
+
+# VennDiagrams of shared genetic data
+```{r}
+vcf_files <- list.files(path = "data-raw/vcf_files", 
+                        pattern = ".*dose.vcf.gz$", full.names = T)
+
+vcfr_objects <- map(vcf_files, read.vcfR)
+```
+
