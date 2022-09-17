@@ -6,5 +6,5 @@ test_that("search_for_phenotype",{
 })
 
 
-?test_that
+test_that("get_pheno_data_wide", {get_pheno_data_wide()})
 

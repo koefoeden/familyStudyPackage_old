@@ -1,3 +1,19 @@
+# Options -------------------------------------------------------------------------
+theme_set(theme_bw())
+only_proj_45 <- T
+
+# Constants ---------------------------------------------------------------
+factor_cols <- list("sex"=c("1"="male",
+                            "2"="female"),
+                    "insres_status"=c("1"="res",
+                                      "2"="non_res"))
+
+interesting_cols <- c("bmi")
+
+
+# Functions ---------------------------------------------------------------
+## Load data -------------------------------------------------------------------------
+
 #' Load RNA counts from the .rds file
 #'
 #' @return Count matrix for each sample with NCBI gene names
@@ -10,6 +26,7 @@ load_rna_counts <- function() {
     .$counts
 
   return(rna_counts)}
+
 
 #' Construct a corresponding meta data tibble from the salmon count matrix
 #'
@@ -41,8 +58,12 @@ make_salmon_metadata <- function() {
 #' @return A tibble of the long phenotypic data
 #' @export
 #'
-get_pheno_data <- function(){read_delim("data-raw/FamilyStudy_PhenoData_13092022.csv")}
-
+get_pheno_data <- function(){
+  if(only_proj_45) {
+    df <- read_delim("data-raw/FamilyStudy_PhenoData_13092022.csv") %>%
+      filter(projectId==45)}
+  else {df <- read_delim("data-raw/FamilyStudy_PhenoData_13092022.csv")}
+}
 #' Loads and converts the long phenomics metadata to wide format, fixing datatypes
 #'
 #' @return A wide, deudpped phenomics platform tibble
@@ -51,14 +72,25 @@ get_pheno_data_wide <- function() {
   pheno_data <- get_pheno_data()
 
   formatted_wide <- pheno_data %>%
-    pivot_wider(names_from = phenoVariable, values_from = result, id_cols = c(projectId, sourceId)) %>%
+    pivot_wider(names_from = phenoVariable,
+                values_from = result,
+                id_cols = c(sourceId)) %>%
     mutate(across(3:last_col(), ~str_replace(.x, ",", "."))) %>% # change to english decimal
-    mutate(mutate(across(3:last_col(),~as.numeric(.x))))  # convert to numeric cols
+    mutate(across(3:last_col(),~as.numeric(.x))) # convert to numeric cols %>%
+
 
   de_dupped <- formatted_wide %>%
     group_by(sourceId) %>%
     summarise(across(where(is.numeric), ~mean(.x, na.rm=T)))
-  return(de_dupped)
+
+  # convert into factors with encoding corresponding to factor_cols
+  factored <- de_dupped %>%
+    mutate(across(all_of(names(factor_cols)),
+                  .fns = function(column) {
+                    factor_cols[[cur_column()]][as.character(column)] %>%
+                      as.factor()}))
+
+  return(factored)
 }
 
 #' Get a phenotypic meta data table for the RNA seq analysis
@@ -73,6 +105,19 @@ get_combined_pheno_data <- function(){
   combined <- inner_join(meta_data,pheno_data)
   return(combined)
 }
+
+#' Load clinical data from DNA methylation paper
+#'
+#' @return A tibble of the wide metadata
+#' @export
+#'
+get_clinical_data <- function(){
+  df <- readxl::read_xls("data-raw/Family_project_data_clinical_characteristics_L.G..xls")
+}
+
+# Misc --------------------------------------------------------------------
+
+
 
 #' Search for phenotype and get counts in the dataset
 #'
@@ -111,8 +156,12 @@ top_50_most_common_phenotypes <- function() {
     summarise(across(.cols = everything(),
                      .fns = ~.x %>% is.na() %>% `!` %>%  sum())) %>%
     as.vector() %>%
-    unlist() %>% base::sort(decreasing = T)
+    unlist() %>%
+    base::sort(decreasing = T)
 
   phenotype_counts
 }
 
+
+
+# Deprecated ------------------------------------------------------------------------

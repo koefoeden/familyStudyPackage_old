@@ -12,7 +12,7 @@ What the package does (one paragraph).
 Useful links:
 \itemize{
   \item \url{https://github.com/koefoeden/familyStudyPackage}
-  \item Report bugs at \url{https://github.com/koefoeden/familyStudyPackage/issues}
+  \item Report bugs at \url{https://github.com/koefoeden/familySt“udyPackage/issues}
 }
 
 }
