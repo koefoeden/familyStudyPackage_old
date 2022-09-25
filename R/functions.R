@@ -1,6 +1,30 @@
+
+# Imports -----------------------------------------------------------------
+#' @import ggplot2
+#' @import dplyr
+#' @import edgeR
+#' @import purrr
+#' @import readr
+#' @import tidyr
+#' @import tibble
+#' @import stringr
+#' @import forcats
+#' @import DT
+#' @import SummarizedExperiment
+#' @import cbmr
+#' @import gtools
+#' @import readxl
+#' @import here
+NULL
+
+
 # Options -------------------------------------------------------------------------
 theme_set(theme_bw())
+here::i_am("DESCRIPTION")
 only_proj_45 <- T
+pheno_data_type <- "clinical"
+options(na.action='na.pass')
+
 
 # Constants ---------------------------------------------------------------
 factor_cols <- list("sex"=c("1"="male",
@@ -18,7 +42,7 @@ interesting_cols <- c("bmi")
 #'
 #' @return Count matrix for each sample with NCBI gene names
 #' @export
-load_rna_counts <- function() {
+get_rna_counts <- function() {
 
   g_counts_raw <- readRDS(here("data-raw/salmon.merged.gene_counts.rds"))
   rna_counts <- g_counts_raw %>%
@@ -29,28 +53,27 @@ load_rna_counts <- function() {
 
 
 #' Construct a corresponding meta data tibble from the salmon count matrix
-#'
-#' @param rna_counts
-#'
 #' @return Meta data tibble with Sample.ID, Family, Family-num, Tissue and type.
 #' @export
 make_salmon_metadata <- function() {
-  rna_counts <- load_rna_counts()
+  rna_counts <- get_rna_counts()
   mixed_ids <- c("F52_4_fat",
                  "F52_4_muscle",
                  "F52_4_muscle_dupl",
                  "F53_12_muscle_dupl")
 
+
   colnames(rna_counts) %>%
     str_replace("X","") %>%
     str_replace("\\.", "_") %>%
-    enframe(name = "Sample.ID", value="Salmon.ID") %>%
-    separate(Salmon.ID, into=c("Family", "Family_Num","Tissue", "Type"), remove = F) %>%
-    unite(col =sourceId, Family, Family_Num, sep = "-", remove = F) %>%
+    enframe(name = "Sample.ID", value="Salmon.ID.edited") %>%
+    separate(Salmon.ID.edited, into=c("Family", "Family_Num","Tissue", "Type"), remove = F) %>%
+    unite(col = sourceId, Family, Family_Num, sep = "-", remove = F) %>%
     replace_na(list(Type="single")) %>%
-    mutate(Tissue_fixed=case_when(Salmon.ID %in% mixed_ids & Tissue== "fat" ~ "muscle",
-                                  Salmon.ID %in% mixed_ids & Tissue== "muscle" ~ "fat",
-                                  TRUE ~ Tissue))
+    mutate(Tissue_fixed=case_when(Salmon.ID.edited %in% mixed_ids & Tissue== "fat" ~ "muscle",
+                                  Salmon.ID.edited %in% mixed_ids & Tissue== "muscle" ~ "fat",
+                                  TRUE ~ Tissue)) %>%
+    mutate(Salmon.ID.raw=colnames(rna_counts))
 }
 
 #' Load Phnomics platform long phenotypic data file
@@ -63,6 +86,22 @@ get_pheno_data <- function(){
     df <- read_delim("data-raw/FamilyStudy_PhenoData_13092022.csv") %>%
       filter(projectId==45)}
   else {df <- read_delim("data-raw/FamilyStudy_PhenoData_13092022.csv")}
+}
+
+write_pheno_data_wide <- function() {
+  pheno_data <- get_pheno_data()
+
+  formatted_wide <- pheno_data %>%
+    pivot_wider(names_from = phenoVariable,
+                values_from = result,
+                id_cols = c(sourceId)) %>%
+    mutate(across(3:last_col(), ~str_replace(.x, ",", "."))) %>% # change to english decimal
+    mutate(across(3:last_col(),~as.numeric(.x))) # convert to numeric cols %>%
+
+
+  # convert into factors with encoding corresponding to factor_cols
+
+  return(formatted_wide)
 }
 #' Loads and converts the long phenomics metadata to wide format, fixing datatypes
 #'
@@ -79,19 +118,11 @@ get_pheno_data_wide <- function() {
     mutate(across(3:last_col(),~as.numeric(.x))) # convert to numeric cols %>%
 
 
-  de_dupped <- formatted_wide %>%
-    group_by(sourceId) %>%
-    summarise(across(where(is.numeric), ~mean(.x, na.rm=T)))
-
   # convert into factors with encoding corresponding to factor_cols
-  factored <- de_dupped %>%
-    mutate(across(all_of(names(factor_cols)),
-                  .fns = function(column) {
-                    factor_cols[[cur_column()]][as.character(column)] %>%
-                      as.factor()}))
 
-  return(factored)
+  return(formatted_wide)
 }
+
 
 #' Get a phenotypic meta data table for the RNA seq analysis
 #'
@@ -99,8 +130,15 @@ get_pheno_data_wide <- function() {
 #' @export
 #'
 get_combined_pheno_data <- function(){
+  if (pheno_data_type=="clinical") {
+    pheno_data<- get_clinical_data()
+  }
+
+  if (pheno_data_type=="phenomics") {
+    pheno_data<-get_pheno_data_wide()
+  }
+
   meta_data <- make_salmon_metadata()
-  pheno_data <- get_pheno_data_wide()
 
   combined <- inner_join(meta_data,pheno_data)
   return(combined)
@@ -112,12 +150,46 @@ get_combined_pheno_data <- function(){
 #' @export
 #'
 get_clinical_data <- function(){
-  df <- readxl::read_xls("data-raw/Family_project_data_clinical_characteristics_L.G..xls")
+  mixed_sexes <- c("609-7")
+  df <- read_xlsx(here("data-raw/clinical_data.xlsx")) %>%
+    mutate(SEX=recode_factor(SEX, "1"="Male", "2"="Female"), # convert to factors
+           smoker=recode_factor(smoker, "2"="No", "1"="Yes"),
+           Glu_tol_3_class=as.factor(Glu_tol_3_class),
+           FAMILY_NR_new=as.factor(FAMILY_NR_new),
+           `Far (1) mor (2) syskon (3)barn (4) med T2D`=as.factor(`Far (1) mor (2) syskon (3)barn (4) med T2D`),
+           FAMILY_NR_old=as.factor(FAMILY_NR_old),
+           Glu_tol_5_class=as.factor(Glu_tol_5_class),
+           DATE_LAB=as.Date.character(DATE_LAB, format = "%y%m%d"))
+
+
+
+
+}
+get_pheno_data_w_RNA <- function(results_dir) {
+  combined_pheno_data <- get_combined_pheno_data()
+
+  y_all <- readRDS(file.path(results_dir, "y_all.RDS"))
+
+  cpm_df_all <- cpm(y_all, log=F)
+
+  cpm_transposed <- cbind(nms = names(cpm_df_all), t(cpm_df_all)) %>%
+    as_tibble(rownames = "Salmon.ID.raw")
+
+  meta_data_sheet_w_RNA_seq <-
+    left_join(x=cpm_transposed,
+              y=combined_pheno_data,
+              by="Salmon.ID.raw")
+
+  return(meta_data_sheet_w_RNA_seq)
 }
 
 # Misc --------------------------------------------------------------------
 
-
+#' Get interesting genes
+#'
+#' @return Vector of gene names
+#' @export
+get_interesting_genes <- function() {read_xlsx(here("interesting_genes.xlsx")) %>% pull(Gene)}
 
 #' Search for phenotype and get counts in the dataset
 #'
@@ -161,7 +233,6 @@ top_50_most_common_phenotypes <- function() {
 
   phenotype_counts
 }
-
 
 
 # Deprecated ------------------------------------------------------------------------

@@ -4,9 +4,9 @@
 \name{familyStudyPackage-package}
 \alias{familyStudyPackage}
 \alias{familyStudyPackage-package}
-\title{familyStudyPackage: What the Package Does (One Line, Title Case)}
+\title{familyStudyPackage: Analysis of familyStudyRNA.}
 \description{
-What the package does (one paragraph).
+Analysis of familyStudyRNA
 }
 \seealso{
 Useful links:
@@ -17,7 +17,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Thomas thomas.koefoed@sund.ku.dk Koefoed (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
 
 }
 \keyword{internal}

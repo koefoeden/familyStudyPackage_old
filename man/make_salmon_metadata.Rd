@@ -6,9 +6,6 @@
 \usage{
 make_salmon_metadata()
 }
-\arguments{
-\item{rna_counts}{}
-}
 \value{
 Meta data tibble with Sample.ID, Family, Family-num, Tissue and type.
 }

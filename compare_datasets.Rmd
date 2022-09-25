@@ -1,22 +1,23 @@
 # Setup
 ```{r}
-library(VennDiagram)
 library(vcfR)
-library(ggvenn)
 
-projects <- c(6, 41, 45) %>% set_names()
+#projects <- c(6, 41, 45) %>% set_names()
+projects <- c(45) %>% set_names() 
 ```
 
 
-# VennDiagrams of shared participants
+# Participants
+## Ven diagrams
 ```{r}
 # The three family studies
-pheno_data <- get_combined_pheno_data()
-participants_per_project <- map(projects, ~pheno_data %>% 
-                                filter(projectId==.x) %>% 
+pheno_data_wide <- get_pheno_data_wide()
+participants_per_project <- map(projects, ~pheno_data_wide %>% 
                                 pull(sourceId) %>% 
                                 unique())
 
+
+participants_clinical <- get_clinical_data() %>% pull(ID) %>% unique() %>% list() %>% set_names("clinical")
 # the RNA seq data
 participants_rna_seq <- make_salmon_metadata() %>% 
   pull(sourceId) %>% 
@@ -25,9 +26,20 @@ participants_rna_seq <- make_salmon_metadata() %>%
   set_names("rna_seq")
 
 # result
-participants_per_project_w_rna_seq <- c(participants_per_project,participants_rna_seq)
-ggvenn(participants_per_project_w_rna_seq)
+participants_per_project_w_rna_seq <- c(participants_per_project,participants_rna_seq, participants_clinical)
+ggVennDiagram(participants_per_project_w_rna_seq)
+
+process_region_data(Venn(participants_per_project_w_rna_seq)) %>% filter(name=="rna_seq..clinical") %>% pull(item) %>% set_names("Not in Phenomics but present in other data")
+process_region_data(Venn(participants_per_project_w_rna_seq)) %>% filter(name=="rna_seq") %>% pull(item) %>% set_names("Not present in Phenomcis or other data")
 ```
+## Lists
+```{r}
+setdiff(participants_rna_seq$rna_seq, intersect(participants_per_project$`45`, participants_rna_seq$rna_seq))
+setdiff(participants_rna_seq$rna_seq, intersect(participants_per_project$`45`, participants_rna_seq$rna_seq))
+```
+
+## Conclusion: 4/5 of the missing samples in the Phenomics data are found in the clinical data. So they must exist somewhere.
+
 # Duplicate rows? 
 ```{r}
 pheno_data %>% distinct(sourceId, phenoVar_id, phenoVariable, result)
@@ -41,6 +53,25 @@ vcf_files <- list.files(path = "data-raw/vcf_files",
 vcfr_objects <- map(vcf_files, read.vcfR)
 ```
 
+# Clinical data vs phenomics data
+```{r}
+pheno_data_wide <- get_pheno_data_wide()
+clinical_data <- get_clinical_data()
+
+df <- inner_join(pheno_data_wide, clinical_data, by=c("sourceId"="ID")) %>% 
+  ggsankey::make_long(`Far (1) mor (2) syskon (3)barn (4) med T2D`, fam_var)
+
+ggplot(df, aes(x = x, 
+               next_x = next_x, 
+               node = node, 
+               next_node = next_node,
+               fill = factor(node),
+               label = node)) +
+  ggsankey::geom_sankey() +
+  ggsankey::geom_sankey_label() +
+  ggsankey::theme_sankey(base_size = 16)
+```
+
 # Old
 ## VennDiagrams of shared phenotype variables
 ```{r}
@@ -51,4 +82,6 @@ phenotypes_per_project <- map(projects, ~pheno_data %>%
 
 ggvenn(phenotypes_per_project)
 ```
+
+## Conclusion: All source IDs (and thereby metadata) are contained in project 45
 
