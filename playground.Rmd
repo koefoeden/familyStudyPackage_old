@@ -1,24 +1,8 @@
-```{r}
-top_50_most_common_phenotypes()
-```
 
 ```{r}
-search_for_phenotype("glu")
-```
-
-
-```{r}
-combined_pheno_data <- get_combined_pheno_data()
-
-combined_pheno_data %>% 
-  ggplot(aes(x=ISI, color=insres_status, 
-             group=insres_status,
-             y=insres_status), alpha=0.1) +
-  geom_boxplot() +
-  geom_point(aes(fill=insres_status)) +
-  facet_wrap(~sex)
-
-
+combined_pheno_data <- get_combined_pheno_data(pheno_data_type = "clinical") %>% 
+combined_pheno_data$BMI
+combined_pheno_data$
 ```
 
 ```{r}
@@ -29,9 +13,4 @@ combined_pheno_data %>%
   geom_smooth(method = "lm")
 ```
 
-```{r}
-combined_metadata <- get_combined_pheno_data()
-combined_metadata$famnum
-
-```
 

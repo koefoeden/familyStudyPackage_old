@@ -1,23 +1,32 @@
 # Setup
 ```{r}
 library(vcfR)
-
-#projects <- c(6, 41, 45) %>% set_names()
-projects <- c(45) %>% set_names() 
+library(ggVennDiagram)
 ```
 
 
 # Participants
 ## Ven diagrams
 ```{r}
-# The three family studies
-pheno_data_wide <- get_pheno_data_wide()
-participants_per_project <- map(projects, ~pheno_data_wide %>% 
-                                pull(sourceId) %>% 
-                                unique())
+# The 45 family study
+participants_45 <-  get_pheno_data_wide() %>% 
+  pull(sourceId) %>% 
+  unique() %>% 
+  list() %>% set_names("45")
 
+# clinical data
+participants_clinical <- get_clinical_data() %>% 
+  pull(sourceId) %>% 
+  unique() %>% 
+  list() %>% 
+  set_names("clinical")
 
-participants_clinical <- get_clinical_data() %>% pull(ID) %>% unique() %>% list() %>% set_names("clinical")
+# Anette data
+participants_anette <- read_csv("data-raw/final_pheno.txt") %>% 
+  pull(overlap) %>% 
+  list() %>% 
+  set_names("anette")
+
 # the RNA seq data
 participants_rna_seq <- make_salmon_metadata() %>% 
   pull(sourceId) %>% 
@@ -26,9 +35,17 @@ participants_rna_seq <- make_salmon_metadata() %>%
   set_names("rna_seq")
 
 # result
-participants_per_project_w_rna_seq <- c(participants_per_project,participants_rna_seq, participants_clinical)
+participants_per_project_w_rna_seq <- c(participants_45,
+                                        participants_rna_seq, 
+                                        participants_clinical,
+                                        participants_anette)
 ggVennDiagram(participants_per_project_w_rna_seq)
 
+participants_anette_rna_seq <- c(participants_anette, 
+                                 participants_rna_seq,
+                                 participants_clinical)
+
+ggVennDiagram(participants_anette_rna_seq)
 process_region_data(Venn(participants_per_project_w_rna_seq)) %>% filter(name=="rna_seq..clinical") %>% pull(item) %>% set_names("Not in Phenomics but present in other data")
 process_region_data(Venn(participants_per_project_w_rna_seq)) %>% filter(name=="rna_seq") %>% pull(item) %>% set_names("Not present in Phenomcis or other data")
 ```

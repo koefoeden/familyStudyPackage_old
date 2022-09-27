@@ -22,7 +22,7 @@ NULL
 theme_set(theme_bw())
 here::i_am("DESCRIPTION")
 only_proj_45 <- T
-pheno_data_type <- "clinical"
+# pheno_data_type <- "clinical"
 options(na.action='na.pass')
 
 
@@ -129,7 +129,7 @@ get_pheno_data_wide <- function() {
 #' @return Wide, dedupped data for each sample that we have RNAseq data for
 #' @export
 #'
-get_combined_pheno_data <- function(){
+get_combined_pheno_data <- function(type="inner", pheno_data_type="clinical"){
   if (pheno_data_type=="clinical") {
     pheno_data<- get_clinical_data()
   }
@@ -140,7 +140,11 @@ get_combined_pheno_data <- function(){
 
   meta_data <- make_salmon_metadata()
 
-  combined <- inner_join(meta_data,pheno_data)
+  if (type=="inner") {
+    combined <- inner_join(meta_data,pheno_data)
+  } else if (type=="left") {
+    combined <- left_join(meta_data,pheno_data)
+  }
   return(combined)
 }
 
@@ -159,11 +163,15 @@ get_clinical_data <- function(){
            `Far (1) mor (2) syskon (3)barn (4) med T2D`=as.factor(`Far (1) mor (2) syskon (3)barn (4) med T2D`),
            FAMILY_NR_old=as.factor(FAMILY_NR_old),
            Glu_tol_5_class=as.factor(Glu_tol_5_class),
-           DATE_LAB=as.Date.character(DATE_LAB, format = "%y%m%d"))
-
-
-
-
+           DATE_LAB=as.Date.character(DATE_LAB, format = "%y%m%d")) %>%
+    mutate(WH_risk=case_when(WH <= 0.95 & SEX=="Male" ~ "Low",
+                             WH %>% between(0.96,1.0) & SEX=="Male" ~ "Moderate",
+                             WH > 1.0 & SEX == "Male" ~ "High",
+                             WH <= 0.8 & SEX == "Female" ~ "Low",
+                             WH %>% between(0.81,0.85) & SEX=="Female" ~ "Moderate",
+                             WH > 0.85 & SEX == "Female" ~ "High",
+                             TRUE ~ "Not classified"))
+  return(df)
 }
 get_pheno_data_w_RNA <- function(results_dir) {
   combined_pheno_data <- get_combined_pheno_data()
@@ -189,7 +197,7 @@ get_pheno_data_w_RNA <- function(results_dir) {
 #'
 #' @return Vector of gene names
 #' @export
-get_interesting_genes <- function() {read_xlsx(here("interesting_genes.xlsx")) %>% pull(Gene)}
+get_interesting_genes <- function() {read_xlsx(here("interesting_genes.xlsx")) %>% pull(Name)}
 
 #' Search for phenotype and get counts in the dataset
 #'

@@ -16,7 +16,7 @@ output:
 params:
   genome: human
   genes: NCBI
-  tissue: muscle
+  tissue: fat
   exclude: none
   report_name: stringr::str_glue("{date}_{script_name}_{params$tissue}")
 editor_options:

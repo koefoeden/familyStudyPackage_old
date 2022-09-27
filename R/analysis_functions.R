@@ -59,9 +59,9 @@ n_sig_genes_pr_contrast <- function(results_DF_list) {
   #' @examples
   #' ggplot_MD()
   purrr::map(results_DF_list,
-             ~dplyr::filter(.data = .,
-                            across(.cols = any_of(c("FDR", "adj.P.Val")),
-                                   .fns = ~.x < 0.05)) %>%
+             ~.x %>%
+               filter(if_any(any_of(c("FDR", "adj.P.Val")),
+                                   ~.x < 0.05)) %>%
                nrow()) %>%
     unlist()
 }
@@ -70,14 +70,13 @@ n_sig_genes_pr_contrast <- function(results_DF_list) {
 #' Make a volcano plot using ggplot
 #'
 #' @param df gene results from EdgeR or voom
-#' @param type if the results are from EdgeR or voom
 #' @param genes character vector, "all" for plotting all genes,
 #' otherwise only plot vector of genes
 #' @return The ggplot object
 #' @export
-ggplot_volcano_updated <- function(df, type, genes="all") {
+ggplot_volcano_updated <- function(df, genes="all") {
   if(!identical(genes,"all")) {
-    df <- df %>% filter(Gene %in% genes)
+    df <- df %>% filter(Name %in% genes)
   }
 
   allLogFc <- df %>% pull("logFC")
@@ -100,12 +99,12 @@ ggplot_volcano_updated <- function(df, type, genes="all") {
     mutate(across(any_of(c("FDR","adj.P.Val")),
                   .fns = ~.x < 0.05,
                   .names="Significant_after_adjustment")) %>%
-    mutate(gene_is_interesting = Gene %in% get_interesting_genes())
+    mutate(gene_is_interesting = Name %in% get_interesting_genes())
 
   plot <- ggplot(df_formatted, aes_string(x = "logFC",
                                           y = "log10Pval",
                                           colour = "Significant_after_adjustment",
-                                          text="Gene",
+                                          text="Name",
                                           alpha="gene_is_interesting")) +
     geom_point(size = 0.5) +
     scale_color_manual(values = c(`TRUE` = "red",
@@ -118,9 +117,7 @@ ggplot_volcano_updated <- function(df, type, genes="all") {
                                   `FALSE` = 0.5)) +
     ylab("-log10 P-value") +
     xlab("Log2 Fold Change") +
-    # scale_x_continuous(limits = c(minLogFc, maxLogFc)) +
     scale_y_continuous(expand = expansion(c(0,0.5))) +
-    #limits = c(maxPval, minPval),
     geom_hline(yintercept = -log10(0.05), lty="dashed", col="grey") +
     geom_vline(xintercept = 0, lty="dashed", col="grey")
 
@@ -139,20 +136,11 @@ ggplot_volcano_updated <- function(df, type, genes="all") {
 #'
 #' @examples
 #' get_DE_datatable()
-get_DE_datatable_updated <- function(df, type="edgeR"){
-  if(type=="edgeR") get_DE_datatable_edgeR_updated(df)
-  else if(type=="voom") get_DE_datatable_voom(df)
-}
-
-get_DE_datatable_edgeR_updated <- function(df) {
+get_DE_datatable_updated <- function(df) {
   df %>%
-    transmute(Name,
-              ENSEMBL_ID,
-              description,
-              logFC=signif(logFC,2),
-              PValue=signif(PValue,2),
-              FDR=signif(FDR,2)) %>%
-
+    select(any_of(c("Name", "ENSEMBL_ID", "description", "logFC", "PValue","FDR")))  %>%
+    mutate(across(any_of(c("logFC", "PValue","FDR")),
+                  ~signif(.x,2))) %>%
     DT::datatable(extensions = 'Buttons',
                   filter="top",
                   rownames = FALSE,
@@ -209,7 +197,7 @@ ggplot_mds_repel_updated <- function (y, dims, color_by) {
 #'
 #' @return Returns nothing, but creates the corresponding .html files with descriptive names
 #' @export
-render_markdownfile_single_tisue_updated <- function (markdown_path, tissue, exclude){
+render_markdownfile_single_tisue_updated <- function (markdown_path, tissue, exclude, name=""){
 
   script_name <- markdown_path %>%
     basename() %>%
@@ -217,7 +205,7 @@ render_markdownfile_single_tisue_updated <- function (markdown_path, tissue, exc
 
   date <- format(Sys.time(), "%Y-%m-%d-%H.%M")
 
-  report_name <- stringr::str_glue("{date}_{script_name}_{tissue}")
+  report_name <- stringr::str_glue("{date}_{script_name}_{tissue}_{name}")
 
   rmarkdown::render(markdown_path,
                     output_file = report_name,
