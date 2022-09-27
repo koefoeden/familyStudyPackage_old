@@ -1,0 +1,41 @@
+```{r}
+library("MatrixEQTL")
+```
+
+```{r}
+base.dir = find.package("MatrixEQTL")
+useModel = modelLINEAR; # modelANOVA or modelLINEAR or modelLINEAR_CROSS
+SNP_file_name = paste(base.dir, "/data/SNP.txt", sep="")
+expression_file_name = paste(base.dir, "/data/GE.txt", sep="")
+covariates_file_name = paste(base.dir, "/data/Covariates.txt", sep="")
+
+output_file_name = tempfile()
+
+pvOutputThreshold = 1e-2
+errorCovariance = numeric()
+```
+
+```{r}
+snps = SlicedData$new();
+snps$fileDelimiter = "\t"      # the TAB character
+snps$fileOmitCharacters = "NA" # denote missing values;
+snps$fileSkipRows = 1          # one row of column labels
+snps$fileSkipColumns = 1       # one column of row labels
+snps$fileSliceSize = 2000      # read file in pieces of 2,000 ws
+snps$LoadFile(SNP_file_name)
+
+me = Matrix_eQTL_engine(
+    snps = snps,
+    gene = gene,
+    cvrt = cvrt,
+    output_file_name = output_file_name,
+    pvOutputThreshold = pvOutputThreshold,
+    useModel = useModel,
+    errorCovariance = errorCovariance,
+    verbose = TRUE,
+    pvalue.hist = TRUE,
+    min.pv.by.genesnp = FALSE,
+    noFDRsaveMemory = FALSE)
+```
+
+Each significant gene-SNP association is recorded in a separate line in the output file and in the returned object me. In case of cis/trans eQTL analysis described below, two output files are produced, one with cis-eQTLs, another only with trans. Every record contains a SNP name, a transcript name, estimate of the effect size, t- or F-statistic, p-value, and FDR.
