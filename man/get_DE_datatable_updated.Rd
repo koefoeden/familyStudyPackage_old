@@ -4,7 +4,7 @@
 \alias{get_DE_datatable_updated}
 \title{Return a nicely formatted DT::datatable object of the DE results}
 \usage{
-get_DE_datatable_updated(df, type = "edgeR")
+get_DE_datatable_updated(df)
 }
 \arguments{
 \item{df}{The dataframe with the DE results}

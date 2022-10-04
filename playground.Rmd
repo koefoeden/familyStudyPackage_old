@@ -1,16 +1,2 @@
 
-```{r}
-combined_pheno_data <- get_combined_pheno_data(pheno_data_type = "clinical") %>% 
-combined_pheno_data$BMI
-combined_pheno_data$
-```
-
-```{r}
-combined_pheno_data %>% 
-  ggplot(aes(x=bmi, y=ISI, color=sex),
-         alpha=0.1) +
-  geom_point() +
-  geom_smooth(method = "lm")
-```
-
 

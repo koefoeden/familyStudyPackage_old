@@ -4,19 +4,17 @@
 \alias{ggplot_volcano_updated}
 \title{Make a volcano plot using ggplot}
 \usage{
-ggplot_volcano_updated(df, type = "edgeR")
+ggplot_volcano_updated(df, genes = "all")
 }
 \arguments{
 \item{df}{gene results from EdgeR or voom}
 
-\item{type}{if the results are from EdgeR or voom}
+\item{genes}{character vector, "all" for plotting all genes,
+otherwise only plot vector of genes}
 }
 \value{
 The ggplot object
 }
 \description{
 Make a volcano plot using ggplot
-}
-\examples{
-ggplot_volcano()
 }

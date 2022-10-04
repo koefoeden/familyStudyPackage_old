@@ -1,29 +1,96 @@
+# Setup
 ```{r}
 library(tidyverse)
 library(TwoSampleMR)
 library(MRInstruments)
+data(gtex_eqtl)
 ```
+# Get Exposure
 ```{r}
-# List available GWASs
 ao <- available_outcomes()
 
+ao %>% filter(trait %>% str_detect("ENSG00000181856")) %>% View()
+gtex_eqtl_SLC2A4 <- "eqtl-a-ENSG00000181856"
+
+genes_involved_in_GLUT4_presence <- c("SLC2A4"="ENSG00000181856")
+
+# exposure_dat <- extract_instruments(gtex_eqtl_SLC2A4, p1 = 0.001, p2 = 0.001)
+EQTL_adipose <- fread("../Adipose_Subcutaneous.v8.independent_eqtls.txt.gz")
+exposure_dat <- EQTL_adipose %>% 
+  filter(str_detect(gene_id, "ENSG00000181856")) %>% 
+  mutate(between_dist=tss_distance-tss_distance[1]) %>% 
+  
+
 ao %>% filter(trait %>% str_detect("(?i)type 2 diabetes")) %>% View()
+# t2d_gwas <- "ebi-a-GCST006867" #Xue
+t2d_gwas <- "ebi-a-GCST007518" #Mahajan
+
+
 
 ```
 
-
+# Get outcome data
 ```{r}
-# Get instruments
-data(gtex_eqtl)
-exposure_dat <- extract_instruments("ieu-a-2")
 
 # Get effects of instruments on outcome
-outcome_dat <- extract_outcome_data(snps=exposure_dat$SNP, outcomes = "ieu-a-7")
+outcome_dat <- extract_outcome_data(snps=exposure_dat$SNP, outcomes = t2d_gwas, 
+                                    rsq=0.8)
 
 # Harmonise the exposure and outcome data
-dat <- harmonise_data(exposure_dat, outcome_dat)
+dat <- harmonise_data(exposure_dat, outcome_dat,action = 1 )
+```
 
 # Perform MR
+## Analysis
+```{r}
+# Perform MR
 res <- mr(dat)
+```
+
+## Heterogeneity
+```{r}
+mr_heterogeneity(dat)
+```
+
+## Pleiotropy
+```{r}
+mr_pleiotropy_test(dat)
+```
+
+## Single SNP-test
+```{r}
+res_single <- mr_singlesnp(dat)
+```
+
+# Plots
+## Scatter plot
+```{r}
+p1 <- mr_scatter_plot(res, dat)
+p1[[1]]
+```
+
+## Forest plot
+```{r}
+p2 <- mr_forest_plot(res_single)
+p2[[1]]
+```
+```{r}
+test_tibble <- tibble(NhoodGroup=c(1,2,3,4,5,6), avg_lfc=c(-1.18,0.677, -0.212, 2.10, -2.67, 4.05))
+test_tibble %>% mutate(nearest=test_tibble$NhoodGroup[which.min(abs(test_tibble$avg_lfc-avg_lfc[row_number()]))])
+
+
+test_tibble <- tibble(NhoodGroup=c(1,2,3,4,5,6), avg_lfc=c(-1.18,0.677, -0.212, 2.10, -2.67, 4.05))
+
+
+test_tibble %>% arrange()
+
+
+imap(test_tibble$avg_lfc, 
+    ~`-`(.x, test_tibble$avg_lfc[-.y]) %>% 
+      abs() %>% 
+      which.min()) %>% 
+  unlist()
+
+
 ```
 

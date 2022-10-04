@@ -4,7 +4,7 @@
 \alias{get_combined_pheno_data}
 \title{Get a phenotypic meta data table for the RNA seq analysis}
 \usage{
-get_combined_pheno_data()
+get_combined_pheno_data(type = "inner", pheno_data_type = "clinical")
 }
 \value{
 Wide, dedupped data for each sample that we have RNAseq data for

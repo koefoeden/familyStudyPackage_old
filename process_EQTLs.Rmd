@@ -6,7 +6,8 @@ library(vcfR)
 ```
 
 ```{r}
-EQTL_adipose <- fread("/emc/cbmr/projects/tqb695/family_study/GTEx_Analysis_v8_eQTL_independent/Adipose_Subcutaneous.v8.independent_eqtls.txt.gz")
+# EQTL_adipose <- fread("/emc/cbmr/projects/tqb695/family_study/GTEx_Analysis_v8_eQTL_independent/Adipose_Subcutaneous.v8.independent_eqtls.txt.gz")
+EQTL_adipose <- fread("../Adipose_Subcutaneous.v8.independent_eqtls.txt.gz")
 EQTL_adipose %>% filter(str_detect(gene_id, "ENSG00000181856")) %>% mutate(between_dist=tss_distance-tss_distance[1])
 ```
 
