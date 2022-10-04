@@ -37,10 +37,6 @@ map(c("glu","ins","cpep"),
 )
 ```
 
-<<<<<<< HEAD
-
-=======
->>>>>>> c9b6cd79bccc51d06e0580082f672835cff0e6b4
 # Raw CPM Visualizations
 ```{r}
 pheno_data_w_RNA_muscle <- get_pheno_data_w_RNA("2022-09-19-15.52_analysis_muscle_data/")
@@ -133,8 +129,6 @@ fit_all$coefficients
 
 ```
 
-<<<<<<< HEAD
-=======
 # Relatedness matrix
 ## foramt data
 ```{r}
@@ -174,7 +168,4 @@ map(seq(1,10,2),
 )
 
 ```
-
->>>>>>> c9b6cd79bccc51d06e0580082f672835cff0e6b4
-
 
