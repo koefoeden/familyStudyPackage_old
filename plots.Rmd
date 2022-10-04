@@ -1,6 +1,7 @@
 # Correlation between phenotypes
 ```{r, fig.height=10, fig.width=10}
 library(ggcorrplot)
+
 clinical_data_subset <- get_clinical_data() %>% 
   select(HOMA_B_2.88, BIGTT_AIR_t_0_60_120, Insulinogenic_index, HOMA_IR_156, BIGG_SI_t_0_60_120, Homa_is,  BMI,AGE) %>% 
   drop_na()
@@ -30,103 +31,143 @@ map(c("glu","ins","cpep"),
                    names_transform = as.numeric,
                    values_transform = as.numeric) %>% 
       ggplot(aes_string(x="Timepoint", 
-                 y=str_glue("{.x}"),
-                 color="Glu_tol_3_class")) +
+                        y=str_glue("{.x}"),
+                        color="Glu_tol_3_class")) +
       geom_line(alpha=0.5)
 )
-    ```
+```
+
+# Raw CPM Visualizations
+```{r}
+pheno_data_w_RNA_muscle <- get_pheno_data_w_RNA("2022-09-19-15.52_analysis_muscle_data/")
+pheno_data_w_RNA_fat <- get_pheno_data_w_RNA("2022-09-19-15.46_analysis_fat_data/")
+```
+
+## BMI and leptin
+```{r}
+pheno_data_w_RNA %>% 
+  ggplot(aes(x=bmi, y=LEP)) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~sex)
+
+pheno_data_w_RNA %>% 
+  ggplot(aes(x=LEP, y=leptin)) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~sex)
+
+pheno_data_w_RNA %>% 
+  ggplot(aes(x=bmi, y=leptin)) +
+  geom_point() +
+  geom_smooth() + 
+  facet_wrap(~sex)
+```
+
+## Gene CPMs and various IR/IS measures
+### All interesting geens and IR/IS measures
+```{r, fig.width=25, fig.height=3}
+pheno_data_w_RNA_fat_long <- pheno_data_w_RNA_fat %>% 
+  mutate(HOMA_IS_156=1/HOMA_IR_156) %>%  
+  pivot_longer(cols=all_of(c("HOMA_IS_156","BIGG_SI_t_0_60_120","WBSI")), 
+               names_to = "IS_name", 
+               values_to = "IS_value")
+
+pheno_data_w_RNA_fat_long_double <- pheno_data_w_RNA_fat_long %>% 
+  pivot_longer(cols=any_of(get_interesting_genes()),
+               names_to="Gene_name",
+               values_to="Gene_CPM")
+
+pheno_data_w_RNA_fat_long_double %>% 
+  ggplot(aes(x=Gene_CPM, y=IS_value)) +
+  geom_point(size=0.1) +
+  scale_y_continuous(expand = expansion(mult=c(0,0.5))) +
+  geom_smooth(method = "lm") +
+  facet_grid(rows = vars(IS_name),
+             cols = vars(Gene_name),
+             scales = "free", )#,
+```
+
+```{r}
+pheno_data_w_RNA_fat_long %>% 
+  ggplot(aes(x=SLC2A4, y=IS_value)) +
+  geom_point() +
+  scale_y_continuous(expand = expansion(mult=c(0,0.5))) +
+  facet_wrap(~IS_name, scales="free") +
+  xlab("GLUT4 gene expression (CPM)") +
+  ylab("Insulin sensitivity index value") +
+  geom_smooth(method = "lm")
+```
+
+### Fitted vs raw counts
+```{r}
+fit_all <- readRDS("2022-09-19-15.46_analysis_fat_data/fit_all.RDS")
+fit_all$coefficients %>% as_tibble(rownames = "Gene") %>% filter(Gene=="SLC2A4")
+
+fitted <- fit_all$fitted.values %>% as_tibble(rownames = "Gene") %>% filter(Gene=="SLC2A4") %>% pivot_longer(cols=2:last_col())
+
+raw <- fit_all$counts %>% as_tibble(rownames = "Gene") %>% filter(Gene=="SLC2A4") %>% pivot_longer(cols=2:last_col())
+
+combined <- inner_join(raw, fitted, by="name")
+combined %>% ggplot(aes(x=value.x, y=value.y)) +
+  geom_point()
+```
+
+## PRKCA and HOMA_IR_156
+```{r}
+pheno_data_w_RNA_muscle %>% 
+  ggplot(aes(x=HOMA_IR_156, y=PRKCA)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+
+# Fit
+```{r}
+fit_all %>% names()
+fit_all$coefficients
+
+```
+
+# Relatedness matrix
+## foramt data
+```{r}
+PCA_data_plink <- read_tsv("../vcf_files_sym/fam_study_only_genotyped.eigenvec") 
+PCA_data <- PCA_data_plink %>% 
+  mutate(originalID=`#IID`) %>%  
+  relocate(originalID) %>% 
+  filter(str_detect(`#IID`, pattern = "41x", negate = T)) %>% # remove non 45 samples 
+  mutate(`#IID`=str_remove_all(`#IID`, "45x")) %>%  # remove 45 designation
+  separate(`#IID`, into=c("fam","ind"), sep=c("-")) %>% # Seperate IID into fam and individuals
+  separate(fam, into=c("#IID","fam"), sep=c("_")) %>% # Separate IID into IID and family
+  extract(ind, into=c("ind", "replicate"), regex = "([0-9]{1,2}):?([A-Z])?") %>%  # add into replicates
+  mutate(replicate=na_if(replicate, "")) %>% 
+  mutate(fam=coalesce(fam,`#IID`)) %>% # if fam is empty, take value fro IID
+  filter(!is.na(ind)) # remove rows with missing info
+  
+  
+PCA_data %>% View()
+```
+
+## make PCA
+```{r, fig.width=8, fig.height=14}
+library(tidyverse)
+library(plotly)
+library(ggrepel)
+map(seq(1,10,2), 
+    ~{my_plot <- PCA_data %>% 
+      ggplot(aes_string(x=str_glue("PC{.x}"), 
+                        y=str_glue("PC{.x+1}"), 
+                        color="fam",
+                        label="ind")) +
+      geom_point() + 
+      theme_bw() +
+      theme(legend.position = "bottom")
     
-    # Raw CPM Visualizations
-    ```{r}
-    pheno_data_w_RNA_muscle <- get_pheno_data_w_RNA("2022-09-19-15.52_analysis_muscle_data/")
-    pheno_data_w_RNA_fat <- get_pheno_data_w_RNA("2022-09-19-15.46_analysis_fat_data/")
-    ```
-    
-    ## BMI and leptin
-    ```{r}
-    pheno_data_w_RNA %>% 
-      ggplot(aes(x=bmi, y=LEP)) +
-      geom_point() +
-      geom_smooth() +
-      facet_wrap(~sex)
-    
-    pheno_data_w_RNA %>% 
-      ggplot(aes(x=LEP, y=leptin)) +
-      geom_point() +
-      geom_smooth() +
-      facet_wrap(~sex)
-    
-    pheno_data_w_RNA %>% 
-      ggplot(aes(x=bmi, y=leptin)) +
-      geom_point() +
-      geom_smooth() + 
-      facet_wrap(~sex)
-    ```
-    
-    ## Gene CPMs and various IR/IS measures
-    ### All interesting geens and IR/IS measures
-    ```{r, fig.width=25, fig.height=3}
-    pheno_data_w_RNA_fat_long <- pheno_data_w_RNA_fat %>% 
-      mutate(HOMA_IS_156=1/HOMA_IR_156) %>%  
-      pivot_longer(cols=all_of(c("HOMA_IS_156","BIGG_SI_t_0_60_120","WBSI")), 
-                   names_to = "IS_name", 
-                   values_to = "IS_value")
-    
-    pheno_data_w_RNA_fat_long_double <- pheno_data_w_RNA_fat_long %>% 
-      pivot_longer(cols=any_of(get_interesting_genes()),
-                   names_to="Gene_name",
-                   values_to="Gene_CPM")
-    
-    pheno_data_w_RNA_fat_long_double %>% 
-      ggplot(aes(x=Gene_CPM, y=IS_value)) +
-      geom_point(size=0.1) +
-      scale_y_continuous(expand = expansion(mult=c(0,0.5))) +
-      geom_smooth(method = "lm") +
-      facet_grid(rows = vars(IS_name),
-                 cols = vars(Gene_name),
-                 scales = "free", )#,
-    ```
-    
-    ```{r}
-    pheno_data_w_RNA_fat_long %>% 
-      ggplot(aes(x=SLC2A4, y=IS_value)) +
-      geom_point() +
-      scale_y_continuous(expand = expansion(mult=c(0,0.5))) +
-      facet_wrap(~IS_name, scales="free") +
-      xlab("GLUT4 gene expression (CPM)") +
-      ylab("Insulin sensitivity index value") +
-      geom_smooth(method = "lm")
-    ```
-    
-    ### Fitted vs raw counts
-    ```{r}
-    fit_all <- readRDS("2022-09-19-15.46_analysis_fat_data/fit_all.RDS")
-    fit_all$coefficients %>% as_tibble(rownames = "Gene") %>% filter(Gene=="SLC2A4")
-    
-    fitted <- fit_all$fitted.values %>% as_tibble(rownames = "Gene") %>% filter(Gene=="SLC2A4") %>% pivot_longer(cols=2:last_col())
-    
-    raw <- fit_all$counts %>% as_tibble(rownames = "Gene") %>% filter(Gene=="SLC2A4") %>% pivot_longer(cols=2:last_col())
-    
-    combined <- inner_join(raw, fitted, by="name")
-    combined %>% ggplot(aes(x=value.x, y=value.y)) +
-      geom_point()
-    ```
-    
-    ## PRKCA and HOMA_IR_156
-    ```{r}
-    pheno_data_w_RNA_muscle %>% 
-      ggplot(aes(x=HOMA_IR_156, y=PRKCA)) +
-      geom_point() +
-      geom_smooth(method = "lm")
-    ```
-    
-    
-    # Fit
-    ```{r}
-    fit_all %>% names()
-    fit_all$coefficients
-    
-    ```
-    
-    
-    
+    my_plot %>% ggplotly()}
+)
+
+```
+
+
+
