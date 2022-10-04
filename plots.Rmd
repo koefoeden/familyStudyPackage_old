@@ -1,6 +1,7 @@
 # Correlation between phenotypes
 ```{r, fig.height=10, fig.width=10}
 library(ggcorrplot)
+
 clinical_data_subset <- get_clinical_data() %>% 
   select(HOMA_B_2.88, BIGTT_AIR_t_0_60_120, Insulinogenic_index, HOMA_IR_156, BIGG_SI_t_0_60_120, Homa_is,  BMI,AGE) %>% 
   drop_na()
@@ -36,7 +37,10 @@ map(c("glu","ins","cpep"),
 )
 ```
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> c9b6cd79bccc51d06e0580082f672835cff0e6b4
 # Raw CPM Visualizations
 ```{r}
 pheno_data_w_RNA_muscle <- get_pheno_data_w_RNA("2022-09-19-15.52_analysis_muscle_data/")
@@ -129,5 +133,48 @@ fit_all$coefficients
 
 ```
 
+<<<<<<< HEAD
+=======
+# Relatedness matrix
+## foramt data
+```{r}
+PCA_data_plink <- read_tsv("../vcf_files_sym/fam_study_only_genotyped.eigenvec") 
+PCA_data <- PCA_data_plink %>% 
+  mutate(originalID=`#IID`) %>%  
+  relocate(originalID) %>% 
+  filter(str_detect(`#IID`, pattern = "41x", negate = T)) %>% # remove non 45 samples 
+  mutate(`#IID`=str_remove_all(`#IID`, "45x")) %>%  # remove 45 designation
+  separate(`#IID`, into=c("fam","ind"), sep=c("-")) %>% # Seperate IID into fam and individuals
+  separate(fam, into=c("#IID","fam"), sep=c("_")) %>% # Separate IID into IID and family
+  extract(ind, into=c("ind", "replicate"), regex = "([0-9]{1,2}):?([A-Z])?") %>%  # add into replicates
+  mutate(replicate=na_if(replicate, "")) %>% 
+  mutate(fam=coalesce(fam,`#IID`)) %>% # if fam is empty, take value fro IID
+  filter(!is.na(ind)) # remove rows with missing info
+  
+  
+PCA_data %>% View()
+```
+
+## make PCA
+```{r, fig.width=8, fig.height=14}
+library(tidyverse)
+library(plotly)
+library(ggrepel)
+map(seq(1,10,2), 
+    ~{my_plot <- PCA_data %>% 
+      ggplot(aes_string(x=str_glue("PC{.x}"), 
+                        y=str_glue("PC{.x+1}"), 
+                        color="fam",
+                        label="ind")) +
+      geom_point() + 
+      theme_bw() +
+      theme(legend.position = "bottom")
+    
+    my_plot %>% ggplotly()}
+)
+
+```
+
+>>>>>>> c9b6cd79bccc51d06e0580082f672835cff0e6b4
 
 
