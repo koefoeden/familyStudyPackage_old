@@ -15,6 +15,8 @@
 #' @import gtools
 #' @import readxl
 #' @import here
+#' @import plotly
+#' @import ggVennDiagram
 NULL
 
 
@@ -22,7 +24,6 @@ NULL
 theme_set(theme_bw())
 here::i_am("DESCRIPTION")
 only_proj_45 <- T
-# pheno_data_type <- "clinical"
 options(na.action='na.pass')
 
 
@@ -88,21 +89,6 @@ get_pheno_data <- function(){
   else {df <- read_delim("data-raw/FamilyStudy_PhenoData_13092022.csv")}
 }
 
-write_pheno_data_wide <- function() {
-  pheno_data <- get_pheno_data()
-
-  formatted_wide <- pheno_data %>%
-    pivot_wider(names_from = phenoVariable,
-                values_from = result,
-                id_cols = c(sourceId)) %>%
-    mutate(across(3:last_col(), ~str_replace(.x, ",", "."))) %>% # change to english decimal
-    mutate(across(3:last_col(),~as.numeric(.x))) # convert to numeric cols %>%
-
-
-  # convert into factors with encoding corresponding to factor_cols
-
-  return(formatted_wide)
-}
 #' Loads and converts the long phenomics metadata to wide format, fixing datatypes
 #'
 #' @return A wide, deudpped phenomics platform tibble
@@ -116,7 +102,6 @@ get_pheno_data_wide <- function() {
                 id_cols = c(sourceId)) %>%
     mutate(across(3:last_col(), ~str_replace(.x, ",", "."))) %>% # change to english decimal
     mutate(across(3:last_col(),~as.numeric(.x))) # convert to numeric cols %>%
-
 
   # convert into factors with encoding corresponding to factor_cols
 
@@ -186,11 +171,57 @@ get_pheno_data_w_RNA <- function(results_dir) {
   meta_data_sheet_w_RNA_seq <-
     left_join(x=cpm_transposed,
               y=combined_pheno_data,
-              by="Salmon.ID.raw")
+              by="Salmon.ID.raw", )
 
   return(meta_data_sheet_w_RNA_seq)
 }
 
+#' Get PCA data from Plink PCA output by loading file and formatting it
+#'
+#' @param eigenvec_data The path to the PLINK PCA output
+#'
+#' @return Formatted PCA data with sourceId as identifying column
+#' @export
+#'
+#' @examples
+get_PCA_data <- function(eigenvec_data="data-raw/fam_study_only_genotyped.eigenvec") {
+
+  PCA_data_plink <- read_tsv(file = eigenvec_data)
+
+  PCA_data <- PCA_data_plink %>%
+    mutate(originalID=`#IID`) %>%
+    relocate(originalID) %>%
+    filter(str_detect(`#IID`, pattern = "41x", negate = T)) %>% # remove non 45 samples
+    mutate(`#IID`=str_remove_all(`#IID`, "45x")) %>%  # remove 45 designation
+    separate(`#IID`, into=c("fam","ind"), sep=c("-")) %>% # Seperate IID into fam and individuals
+    separate(fam, into=c("#IID","fam"), sep=c("_")) %>% # Separate IID into IID and family
+    # extract(ind, into=c("ind", "replicate"), regex = "([0-9]{1,2}):?([A-Z])?") %>%  # add into replicates
+    # mutate(replicate=na_if(replicate, "")) %>%
+    mutate(fam=coalesce(fam,`#IID`)) %>% # if fam is empty, take value fro IID
+    filter(!is.na(ind)) %>%
+    mutate(sourceId=paste(fam, ind, sep="-")) %>% # remove rows with missing info
+    relocate(sourceId)
+
+  return(PCA_data)
+}
+
+#' Get pheno data w genetic info
+#'
+#' @param results_dir Path to a RNA seq analysis data folder
+#' @return Returns a tibble of all samples that have RNA data with their
+#' clinical characteristics, RNA and genetic data
+#'
+#' @export
+#'
+#' @examples
+get_pheno_data_w_genetics <- function(results_dir) {
+
+  pheno_data_w_RNA <- get_pheno_data_w_RNA(results_dir =results_dir )
+  PCA_data <- get_PCA_data()
+
+  pheno_data_w_genetics <- left_join(x = pheno_data_w_RNA, y=PCA_data)
+  return(pheno_data_w_genetics)
+}
 # Misc --------------------------------------------------------------------
 
 #' Get interesting genes
@@ -242,5 +273,46 @@ top_50_most_common_phenotypes <- function() {
   phenotype_counts
 }
 
+
+# Plots -------------------------------------------------------------------
+plot_PCA <- function(n_PCs=10) {
+  PCA_data <- get_PCA_data()
+
+  plots_for_each_PC <- map(seq(1,n_PCs,2),
+                           ~{my_plot <- PCA_data %>%
+                             ggplot(aes_string(x=str_glue("PC{.x}"),
+                                               y=str_glue("PC{.x+1}"),
+                                               color="fam",
+                                               label="ind")) +
+                             geom_point() +
+                             theme_bw() +
+                             theme(legend.position = "bottom")
+
+                           interactive_plot <- ggplotly(my_plot)
+                           return(interactive_plot)
+                           })
+  return(plots_for_each_PC)
+}
+
+plot_oral_glucose_data <- function() {
+
+  combined_pheno_data <- get_combined_pheno_data()
+
+  plots <- map(c("glu","ins","cpep"),
+               .f = ~combined_pheno_data %>%
+                 group_by(Glu_tol_3_class) %>%
+                 summarise(across(starts_with("OGTT"), ~median(.x, na.rm = T))) %>%
+                 pivot_longer(cols=matches(str_glue("OGTT_{.x}_t-*[0-9]+$")),
+                              names_prefix = str_glue("OGTT_{.x}_t"),
+                              names_to = "Timepoint",
+                              values_to = str_glue("{.x}") %>% as.character(),
+                              names_transform = as.numeric,
+                              values_transform = as.numeric) %>%
+                 ggplot(aes_string(x="Timepoint",
+                                   y=str_glue("{.x}"),
+                                   color="Glu_tol_3_class")) +
+                 geom_line(alpha=0.5))
+  return(plots)
+}
 
 # Deprecated ------------------------------------------------------------------------

@@ -18,23 +18,7 @@ cor_data %>% ggcorrplot(lab = TRUE,insig = "blank", p.mat = p_mat)
 
 # Oral Gluose Test
 ```{r}
-combined_pheno_data <- get_combined_pheno_data()
-
-map(c("glu","ins","cpep"),
-    .f = ~combined_pheno_data %>% 
-      group_by(Glu_tol_3_class) %>% 
-      summarise(across(starts_with("OGTT"), ~median(.x, na.rm = T))) %>% 
-      pivot_longer(cols=matches(str_glue("OGTT_{.x}_t-*[0-9]+$")), 
-                   names_prefix = str_glue("OGTT_{.x}_t"),
-                   names_to = "Timepoint",
-                   values_to = str_glue("{.x}") %>% as.character(),
-                   names_transform = as.numeric,
-                   values_transform = as.numeric) %>% 
-      ggplot(aes_string(x="Timepoint", 
-                        y=str_glue("{.x}"),
-                        color="Glu_tol_3_class")) +
-      geom_line(alpha=0.5)
-)
+plot_oral_glucose_data()
 ```
 
 # Raw CPM Visualizations
@@ -130,42 +114,8 @@ fit_all$coefficients
 ```
 
 # Relatedness matrix
-## foramt data
-```{r}
-PCA_data_plink <- read_tsv("../vcf_files_sym/fam_study_only_genotyped.eigenvec") 
-PCA_data <- PCA_data_plink %>% 
-  mutate(originalID=`#IID`) %>%  
-  relocate(originalID) %>% 
-  filter(str_detect(`#IID`, pattern = "41x", negate = T)) %>% # remove non 45 samples 
-  mutate(`#IID`=str_remove_all(`#IID`, "45x")) %>%  # remove 45 designation
-  separate(`#IID`, into=c("fam","ind"), sep=c("-")) %>% # Seperate IID into fam and individuals
-  separate(fam, into=c("#IID","fam"), sep=c("_")) %>% # Separate IID into IID and family
-  extract(ind, into=c("ind", "replicate"), regex = "([0-9]{1,2}):?([A-Z])?") %>%  # add into replicates
-  mutate(replicate=na_if(replicate, "")) %>% 
-  mutate(fam=coalesce(fam,`#IID`)) %>% # if fam is empty, take value fro IID
-  filter(!is.na(ind)) # remove rows with missing info
-  
-  
-PCA_data %>% View()
-```
-
 ## make PCA
 ```{r, fig.width=8, fig.height=14}
-library(tidyverse)
-library(plotly)
-library(ggrepel)
-map(seq(1,10,2), 
-    ~{my_plot <- PCA_data %>% 
-      ggplot(aes_string(x=str_glue("PC{.x}"), 
-                        y=str_glue("PC{.x+1}"), 
-                        color="fam",
-                        label="ind")) +
-      geom_point() + 
-      theme_bw() +
-      theme(legend.position = "bottom")
-    
-    my_plot %>% ggplotly()}
-)
-
+plot_PCA()
 ```
 

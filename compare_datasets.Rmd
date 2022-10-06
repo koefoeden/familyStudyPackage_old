@@ -1,20 +1,27 @@
 # Setup
 ```{r}
-library(vcfR)
-library(ggVennDiagram)
 ```
 
 
 # Participants
-## Ven diagrams
+## data sets
 ```{r}
-# The 45 family study
-participants_45 <-  get_pheno_data_wide() %>% 
+# the RNA seq data
+participants_rna_seq <- make_salmon_metadata() %>% 
   pull(sourceId) %>% 
   unique() %>% 
-  list() %>% set_names("45")
+  list() %>% 
+  set_names("rna_seq")
 
-# clinical data
+
+# Phenomics data for the 45 study
+participants_phenomics <-  get_pheno_data_wide() %>% 
+  pull(sourceId) %>% 
+  unique() %>% 
+  list() %>% 
+  set_names("45")
+
+# clinical data from paper
 participants_clinical <- get_clinical_data() %>% 
   pull(sourceId) %>% 
   unique() %>% 
@@ -27,20 +34,29 @@ participants_anette <- read_csv("data-raw/final_pheno.txt") %>%
   list() %>% 
   set_names("anette")
 
-# the RNA seq data
-participants_rna_seq <- make_salmon_metadata() %>% 
+# the vcf data
+participants_vcf <- get_PCA_data() %>% 
   pull(sourceId) %>% 
-  unique() %>% 
   list() %>% 
-  set_names("rna_seq")
+  set_names("vcf")
 
-# result
-participants_per_project_w_rna_seq <- c(participants_45,
-                                        participants_rna_seq, 
-                                        participants_clinical,
-                                        participants_anette)
-ggVennDiagram(participants_per_project_w_rna_seq)
+# combined
+participants_per_project_from_other_sources <- c(participants_phenomics,
+                                                 participants_clinical,
+                                                 participants_anette, 
+                                                 participants_vcf)
+```
 
+## Venn diagram plots
+```{r}
+imap(participants_per_project_from_other_sources,
+    ~{combined_list <- c(list(.x) %>% set_names(.y), participants_rna_seq)
+    plot <- ggVennDiagram(combined_list)
+    return(plot)})
+```
+
+## Get missing individuals
+```{r}
 participants_anette_rna_seq <- c(participants_anette, 
                                  participants_rna_seq,
                                  participants_clinical)
@@ -48,9 +64,8 @@ participants_anette_rna_seq <- c(participants_anette,
 ggVennDiagram(participants_anette_rna_seq)
 process_region_data(Venn(participants_per_project_w_rna_seq)) %>% filter(name=="rna_seq..clinical") %>% pull(item) %>% set_names("Not in Phenomics but present in other data")
 process_region_data(Venn(participants_per_project_w_rna_seq)) %>% filter(name=="rna_seq") %>% pull(item) %>% set_names("Not present in Phenomcis or other data")
-```
-## Lists
-```{r}
+
+
 setdiff(participants_rna_seq$rna_seq, intersect(participants_per_project$`45`, participants_rna_seq$rna_seq))
 setdiff(participants_rna_seq$rna_seq, intersect(participants_per_project$`45`, participants_rna_seq$rna_seq))
 ```

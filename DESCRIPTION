@@ -27,6 +27,8 @@ Imports:
     stringr,
     SummarizedExperiment,
     tibble,
-    tidyr
+    tidyr,
+    plotly,
+    ggVennDiagram
 Suggests:
     testthat
