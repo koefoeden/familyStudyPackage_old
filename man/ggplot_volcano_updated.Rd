@@ -4,10 +4,20 @@
 \alias{ggplot_volcano_updated}
 \title{Make a volcano plot using ggplot}
 \usage{
-ggplot_volcano_updated(df, genes = "all")
+ggplot_volcano_updated(
+  df,
+  plot_genes = "all",
+  highlight_genes = c("interesting_gene_name_1", "interesting_gene_name_2"),
+  only_sig = FALSE,
+  interactive_plot = TRUE
+)
 }
 \arguments{
 \item{df}{gene results from EdgeR or voom}
+
+\item{only_sig}{Whether or not only to print FDR significant genes}
+
+\item{interactive_plot}{Whether or not to print a plotly interactive plot}
 
 \item{genes}{character vector, "all" for plotting all genes,
 otherwise only plot vector of genes}

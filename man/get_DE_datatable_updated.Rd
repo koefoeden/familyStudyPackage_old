@@ -17,6 +17,3 @@ A DT::datatable
 \description{
 Return a nicely formatted DT::datatable object of the DE results
 }
-\examples{
-get_DE_datatable()
-}

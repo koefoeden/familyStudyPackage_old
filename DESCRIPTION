@@ -29,6 +29,7 @@ Imports:
     tibble,
     tidyr,
     plotly,
-    ggVennDiagram
+    ggVennDiagram,
+    eulerr
 Suggests:
     testthat
