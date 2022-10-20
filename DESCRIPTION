@@ -14,7 +14,6 @@ BugReports: https://github.com/koefoeden/familySt“udyPackage/issues
 Config/testthat/edition: 3
 Imports:
     here,
-    cbmr,
     dplyr,
     DT,
     edgeR,
@@ -28,7 +27,6 @@ Imports:
     SummarizedExperiment,
     tibble,
     tidyr,
-    plotly,
-    ggVennDiagram
+    plotly
 Suggests:
     testthat

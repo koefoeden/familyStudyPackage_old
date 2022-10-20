@@ -188,6 +188,7 @@ get_PCA_data <- function(eigenvec_data="data-raw/fam_study_only_genotyped.eigenv
 
   PCA_data_plink <- read_tsv(file = eigenvec_data)
 
+
   PCA_data <- PCA_data_plink %>%
     mutate(originalID=`#IID`) %>%
     relocate(originalID) %>%
@@ -195,8 +196,6 @@ get_PCA_data <- function(eigenvec_data="data-raw/fam_study_only_genotyped.eigenv
     mutate(`#IID`=str_remove_all(`#IID`, "45x")) %>%  # remove 45 designation
     separate(`#IID`, into=c("fam","ind"), sep=c("-")) %>% # Seperate IID into fam and individuals
     separate(fam, into=c("#IID","fam"), sep=c("_")) %>% # Separate IID into IID and family
-    # extract(ind, into=c("ind", "replicate"), regex = "([0-9]{1,2}):?([A-Z])?") %>%  # add into replicates
-    # mutate(replicate=na_if(replicate, "")) %>%
     mutate(fam=coalesce(fam,`#IID`)) %>% # if fam is empty, take value fro IID
     filter(!is.na(ind)) %>%
     mutate(sourceId=paste(fam, ind, sep="-")) %>% # remove rows with missing info
