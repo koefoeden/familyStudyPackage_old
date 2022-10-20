@@ -1,10 +1,21 @@
 # Correlation between phenotypes
+```{r}
+clinical_data_subset <- get_clinical_data() %>% 
+  select(HOMA_B_2.88, 
+         BIGTT_AIR_t_0_60_120, 
+         Insulinogenic_index, 
+         HOMA_IR_156, 
+         BIGG_SI_t_0_60_120, 
+         Homa_is,  
+         BMI,
+         AGE,
+         WH) %>% 
+  drop_na()
+```
+
+## Matrix
 ```{r, fig.height=10, fig.width=10}
 library(ggcorrplot)
-
-clinical_data_subset <- get_clinical_data() %>% 
-  select(HOMA_B_2.88, BIGTT_AIR_t_0_60_120, Insulinogenic_index, HOMA_IR_156, BIGG_SI_t_0_60_120, Homa_is,  BMI,AGE) %>% 
-  drop_na()
 
 cor_data <- clinical_data_subset %>% 
   cor()
@@ -14,6 +25,15 @@ p_mat <- clinical_data_subset %>% cor_pmat()
 
 cor_data %>% ggcorrplot(lab = TRUE,insig = "blank", p.mat = p_mat)
 ```
+## Plot
+```{r}
+get_clinical_data() %>% 
+  ggplot(aes(x=WH, y=BIGG_SI_t_0_60_120)) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~SEX)
+```
+
 
 
 # Oral Gluose Test
@@ -23,53 +43,107 @@ plot_oral_glucose_data()
 
 # Raw CPM Visualizations
 ```{r}
-pheno_data_w_RNA_muscle <- get_pheno_data_w_RNA("2022-09-19-15.52_analysis_muscle_data/")
-pheno_data_w_RNA_fat <- get_pheno_data_w_RNA("2022-09-19-15.46_analysis_fat_data/")
+# muscle
+pheno_data_w_RNA <- get_pheno_data_w_RNA("2022-09-19-15.52_analysis_muscle_data/")
+# fat
+# pheno_data_w_RNA <- get_pheno_data_w_RNA("2022-09-19-15.46_analysis_fat_data/")
 ```
 
 ## BMI and leptin
 ```{r}
 pheno_data_w_RNA %>% 
-  ggplot(aes(x=bmi, y=LEP)) +
+  ggplot(aes(x=BMI, y=LEP)) +
   geom_point() +
   geom_smooth() +
-  facet_wrap(~sex)
+  facet_wrap(~SEX)
 
 pheno_data_w_RNA %>% 
   ggplot(aes(x=LEP, y=leptin)) +
   geom_point() +
   geom_smooth() +
-  facet_wrap(~sex)
+  facet_wrap(~SEX)
 
 pheno_data_w_RNA %>% 
-  ggplot(aes(x=bmi, y=leptin)) +
+  ggplot(aes(x=BMI, y=leptin)) +
   geom_point() +
   geom_smooth() + 
-  facet_wrap(~sex)
+  facet_wrap(~SEX)
 ```
 
 ## Gene CPMs and various IR/IS measures
-### All interesting geens and IR/IS measures
-```{r, fig.width=25, fig.height=3}
-pheno_data_w_RNA_fat_long <- pheno_data_w_RNA_fat %>% 
-  mutate(HOMA_IS_156=1/HOMA_IR_156) %>%  
-  pivot_longer(cols=all_of(c("HOMA_IS_156","BIGG_SI_t_0_60_120","WBSI")), 
-               names_to = "IS_name", 
+### All type 2 diabetes associated genes versus IR/IS measures
+```{r, message=FALSE}
+# IR_IS_measures <- c("HOMA_IS_156","BIGG_SI_t_0_60_120","WBSI")
+IR_IS_measures <- c("BIGG_SI_t_0_60_120")
+genes <- get_interesting_genes()
+
+
+
+# Pivot RNA data to long format according to various IR/IS measures
+pheno_data_w_RNA_measure_long <- pheno_data_w_RNA %>%
+  # mutate(HOMA_IS_156=1/HOMA_IR_156) %>%
+  pivot_longer(cols=all_of(IR_IS_measures),
+               names_to = "IS_name",
                values_to = "IS_value")
 
-pheno_data_w_RNA_fat_long_double <- pheno_data_w_RNA_fat_long %>% 
-  pivot_longer(cols=any_of(get_interesting_genes()),
+# Pivot again to even longer
+pheno_data_w_RNA_measure_genes_long <- pheno_data_w_RNA_measure_long %>%
+  pivot_longer(cols=any_of(genes),
                names_to="Gene_name",
                values_to="Gene_CPM")
 
-pheno_data_w_RNA_fat_long_double %>% 
+# for (i in seq(1,length(unique(pheno_data_w_RNA_measure_genes_long$Gene_name)-10), 10)) {
+# print(i)
+my_plot <- pheno_data_w_RNA_measure_genes_long %>%
   ggplot(aes(x=Gene_CPM, y=IS_value)) +
   geom_point(size=0.1) +
   scale_y_continuous(expand = expansion(mult=c(0,0.5))) +
-  geom_smooth(method = "lm") +
-  facet_grid(rows = vars(IS_name),
-             cols = vars(Gene_name),
-             scales = "free", )#,
+  geom_smooth() +
+  ggforce::facet_wrap_paginate(facets = vars(Gene_name), nrow = 2, ncol = 2,
+                               scales = "free")
+
+
+for (i in 1:ggforce::n_pages(my_plot)) {
+  print(i)
+  page_plot <- my_plot + ggforce::facet_wrap_paginate(facets = vars(Gene_name), 
+                                                      nrow = 2,
+                                                      ncol = 2,
+                                                      scales = "free",
+                                                      page=i)
+  
+  plot(page_plot)
+}
+```
+
+### Exercise related genes in healthy adults vs IS measure
+```{r}
+# genes <- get_long_term_exercise_induced_genes()
+genes <- c("MYH1","SH3RF2", "MSTN","MYH2")
+IR_IS_measures <- c("BIGG_SI_t_0_60_120")
+
+pheno_data_w_RNA_measure_long <- pheno_data_w_RNA %>%
+  pivot_longer(cols=all_of(IR_IS_measures),
+               names_to = "IS_name",
+               values_to = "IS_value")
+
+# Pivot again to even longer
+pheno_data_w_RNA_measure_genes_long <- pheno_data_w_RNA_measure_long %>%
+  pivot_longer(cols=any_of(genes),
+               names_to="Gene_name",
+               values_to="Gene_CPM")
+
+pheno_data_w_RNA_measure_genes_long %>%
+  ggplot(aes(x=Gene_CPM, y=IS_value)) +
+  geom_point(size=0.1) +
+  scale_y_continuous(expand = expansion(mult=c(0,0.5))) +
+  # geom_smooth() +
+  # facet_grid(rows = vars(SEX),
+  #           cols = vars(Gene_name),
+  #            scales = "free")
+  facet_wrap(facets=vars(Gene_name),
+             scales="free", ncol=2)
+
+
 ```
 
 ```{r}
@@ -106,16 +180,27 @@ pheno_data_w_RNA_muscle %>%
 ```
 
 
-# Fit
-```{r}
-fit_all %>% names()
-fit_all$coefficients
-
-```
-
-# Relatedness matrix
-## make PCA
+# Relatedness matrix PCA
 ```{r, fig.width=8, fig.height=14}
 plot_PCA()
+```
+
+# Correlation between waist-hip-ratio and BIGtt_S in WH-risk high group
+## Setup
+```{r}
+combined_pheno_data <- get_combined_pheno_data()
+combined_pheno_data_WH_risk_high <- combined_pheno_data %>% 
+  filter(sourceId!="641-9") %>% 
+  filter(WH_risk=="High")
+```
+
+```{r}
+combined_pheno_data_WH_risk_high %>% distinct(sourceId, .keep_all = T) %>% 
+  ggplot(aes(x=BIGG_SI_t_0_60_120, y=WH)) +
+  geom_point() +
+  facet_wrap(~SEX)
+
+combined_pheno_data_WH_risk_high %>% distinct(sourceId, .keep_all = T) %>% 
+  select(~SEX)
 ```
 

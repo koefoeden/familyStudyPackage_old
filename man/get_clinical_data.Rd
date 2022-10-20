@@ -2,7 +2,9 @@
 % Please edit documentation in R/functions.R
 \name{get_clinical_data}
 \alias{get_clinical_data}
-\title{Load clinical data from DNA methylation paper}
+\title{Load clinical data from DNA methylation paper. Performs a wide range of data formatting steps
+and adds some new computed variables such as disease risk based on waist-hip ratio and
+BIGG_SI measure adjusted for WH}
 \usage{
 get_clinical_data()
 }
@@ -10,5 +12,7 @@ get_clinical_data()
 A tibble of the wide metadata
 }
 \description{
-Load clinical data from DNA methylation paper
+Load clinical data from DNA methylation paper. Performs a wide range of data formatting steps
+and adds some new computed variables such as disease risk based on waist-hip ratio and
+BIGG_SI measure adjusted for WH
 }

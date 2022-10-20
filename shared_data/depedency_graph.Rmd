@@ -1,0 +1,6 @@
+```{r}
+library("DependenciesGraphs")
+deps <- funDependencies("package:familyStudyPackage", "run_full_analysis")
+plot(deps)
+```
+

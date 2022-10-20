@@ -20,6 +20,3 @@ A facetted ggplot
 \description{
 Plot MD-figures for all samples in DGElist.
 }
-\examples{
-ggplot_MD()
-}

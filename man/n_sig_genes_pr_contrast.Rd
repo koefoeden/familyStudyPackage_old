@@ -16,6 +16,3 @@ A facetted ggplot
 \description{
 Get number of significant genes/GO-terms per contrast
 }
-\examples{
-ggplot_MD()
-}

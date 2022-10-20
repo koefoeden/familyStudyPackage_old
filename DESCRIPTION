@@ -27,6 +27,8 @@ Imports:
     SummarizedExperiment,
     tibble,
     tidyr,
-    plotly
+    plotly,
+    ggVennDiagram,
+    eulerr
 Suggests:
     testthat

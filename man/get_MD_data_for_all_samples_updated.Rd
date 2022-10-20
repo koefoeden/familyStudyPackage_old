@@ -16,6 +16,3 @@ A long tibble with three columns: sample label, mean and diff values
 \description{
 Get MD data for all samples in long tibble
 }
-\examples{
-get_MD_data_for_all_samples()
-}

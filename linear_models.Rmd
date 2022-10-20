@@ -1,0 +1,26 @@
+# Setup
+```{r}
+
+```
+
+## Generate SI obesity corrected
+```{r}
+clinical_data <- get_clinical_data()
+
+data_w_adjusted <- map(c("Female","Male"), 
+    ~{data <- clinical_data %>% 
+      filter(SEX==.x,
+             !is.na(BIGG_SI_t_0_60_120))
+    
+    
+    model <- glm(formula = BIGG_SI_t_0_60_120 ~ WH, 
+                 data = data)
+    
+    data_w_adjusted <- data %>% 
+      mutate(BIGG_SI_t_0_60_120_WH_adjusted=model$residuals+mean(data$BIGG_SI_t_0_60_120)) 
+    
+    return(data_w_adjusted)}
+)
+
+```
+
