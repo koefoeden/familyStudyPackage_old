@@ -498,6 +498,12 @@ get_long_term_exercise_induced_genes <- function(){
   return(genes)
 }
 
+get_SLC2A4_TFs <- function() {
+  gene_vector <- read_xlsx(here("data-raw/SLC2A4_TFs.xlsx")) %>%
+    pull(1) %>%
+    unique()
+  return(gene_vector)
+}
 #' Get dataframe of interesting genes
 #'
 #' @return Vector of gene names

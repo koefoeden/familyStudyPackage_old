@@ -75,14 +75,21 @@ n_sig_genes_pr_contrast <- function(results_DF_list) {
 #' @param interactive_plot Whether or not to print a plotly interactive plot
 #' @return The ggplot object
 #' @export
-ggplot_volcano_updated <- function(df, plot_genes="all",
+ggplot_volcano_updated <- function(df,
+                                   plot_genes="all",
                                    highlight_genes=c("interesting_gene_name_1", "interesting_gene_name_2"),
-                                   only_sig = FALSE,
-                                   interactive_plot=TRUE, title="") {
+                                   only_FDR_sig = FALSE,
+                                   only_nom_sig = FALSE,
+                                   interactive_plot=TRUE,
+                                   title="") {
   if(!identical(plot_genes,"all")) {
     df <- df %>% filter(Name %in% plot_genes)
   }
-  if (only_sig) {
+  if (only_nom_sig) {
+    df <- df %>% filter(if_any(any_of(c("PValue", "P.Value")), ~.x<0.05))
+  }
+
+  if (only_FDR_sig) {
     df <- df %>% filter(if_any(any_of(c("FDR","adj.P.Val")), ~.x<0.05))
   }
 
@@ -106,35 +113,44 @@ ggplot_volcano_updated <- function(df, plot_genes="all",
     mutate(across(any_of(c("FDR","adj.P.Val")),
                   .fns = ~.x < 0.05,
                   .names="FDR<0.05")) %>%
-    mutate(highlighted_genes = Name %in% highlight_genes) %>%
-    mutate(logFC=signif(logFC, 3))
+    mutate(highlighted_genes = Name %in% highlight_genes,
+           FC=signif(2^(logFC),3),
+           logFC=signif(logFC, 3)) %>%
+    mutate(custom_col=case_when(highlighted_genes & `FDR<0.05` ~ "dark blue",
+                                highlighted_genes & (!`FDR<0.05`) ~ "light blue",
+                                !highlighted_genes & `FDR<0.05` ~ "red",
+                                !highlighted_genes & (!`FDR<0.05`) ~ "orange"))
 
   plot <- ggplot(df_formatted, aes_string(x = "logFC",
                                           y = "log10Pval",
-                                          colour = "FDR<0.05",
+                                          colour = "custom_col",#"FDR<0.05",
                                           text="Name",
-                                          alpha="highlighted_genes")) +
-    geom_point(size = 0.5) +
-    scale_color_manual(values = c(`TRUE` = "red",
-                                  `FALSE` = "black"),
-                       name = "Significance",
-                       labels = c(`TRUE` = "adj.P.Val < 0.05",
-                                  `FALSE` = "adj.P.Val ≥ 0.05"),
-                       breaks = c("TRUE", "FALSE")) +
-    scale_alpha_manual(values = c(`TRUE` = 1,
-                                  `FALSE` = 0.4)) +
+                                          alpha="highlighted_genes",
+                                          label="FC")) +
+    geom_point(size = 0.1) +
+    scale_color_manual(values = c("dark blue"="dark blue",
+                                  "light blue"="light blue",
+                                  "red"="red",
+                                  "orange"="orange"))+
+    # `FALSE` = "black"),
+    # name = "Significance",
+    # labels = c(`TRUE` = "adj.P.Val < 0.05",
+    # `FALSE` = "adj.P.Val ≥ 0.05"),
+    # breaks = c("TRUE", "FALSE")) +
+    scale_alpha_manual(values = c(`TRUE` = 0.7,
+                                  `FALSE` = 0.7)) +
     ylab("-log10 P-value") +
     xlab("Log2 Fold Change") +
-    scale_y_continuous(expand = expansion(c(0,0.5))) +
+    scale_y_continuous(expand = expansion(c(0,0.5)),
+                       limits =c(0,minPval)) +
     geom_hline(yintercept = -log10(0.05), lty="dashed", col="grey") +
     geom_vline(xintercept = 0, lty="dashed", col="grey") +
     theme(legend.position = "none") +
     ggtitle(title)
 
-
   if(interactive_plot) {
-    plot <- ggplotly(plot, tooltip = c("text", "x", "y", "colour"))
-    }
+    plot <- ggplotly(plot, tooltip = c("text", "x", "y", "colour", "label"))
+  }
 
   return(plot)
 }

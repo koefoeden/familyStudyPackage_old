@@ -1,4 +1,123 @@
-# Models and running
+# Phenotypic data exploration
+```{r}
+measures <- list("insulin_secretion_measures" = c("CIR", "HOMA_B_2.88","Insulinogenic_index","BIGTT_AIR_t_0_60_120"),
+                 "insulin_sensitivty_measures" = c("WBSI","HOMA_IR_156","BIGG_SI_t_0_60_120"),
+                 "disposition_measures" =c("HBA", "DI"),
+                 "anthropologic_measures"=c("WAIST","WH", "WEIGHT","BMI", "HIP", "HEIGHT", "AGE"))
+
+non_anthro_measures <- measures[c("insulin_secretion_measures",
+                                  "insulin_sensitivty_measures",
+                                  "disposition_measures")] %>% 
+  unlist() %>% 
+  unname()
+```
+
+## Phenotypic data within each glucose tolerance group & corrs
+The glucose tolerance class 3 are more obese, and show many signs of diabetes.
+```{r, fig.height = 10, fig.width=7, warning=FALSE, message=FALSE}
+clinical_data<- get_clinical_data()
+
+imap(measures, 
+     ~{plot_data <- clinical_data %>% 
+       pivot_longer(cols = all_of(.x))
+     
+     box_plot <- plot_data %>% 
+       ggplot(aes(color=Glu_tol_3_class, x=Glu_tol_3_class, y=value, label=sourceId)) +
+       geom_point(size=0.1) +
+       geom_boxplot() +
+       geom_smooth(aes(group=1)) +
+       facet_wrap(facets = vars(name), 
+                  scales = "free") +
+       ggtitle(.y) 
+     
+     corr_plot <- clinical_data %>% 
+       select(all_of(.x)) %>% 
+       drop_na() %>% 
+       cor() %>%
+       ggcorrplot::ggcorrplot(lab = TRUE)
+     
+     cowplot::plot_grid(box_plot, 
+                        corr_plot,
+                        ncol=1)
+     }
+)
+
+
+clinical_data %>% 
+  select(all_of(non_anthro_measures)) %>% 
+  drop_na() %>% 
+  cor() %>%
+  ggcorrplot::ggcorrplot(lab = TRUE)
+
+```
+
+## Outliers in terms of BMI or WH
+```{r, fig.width=10, fig.height=15}
+clinical_data<- get_clinical_data()
+
+plot_BMI <- clinical_data %>% 
+  pivot_longer(cols = all_of(non_anthro_measures) & !(WH | BMI)) %>% 
+  ggplot(aes(color=Glu_tol_3_class, x=BMI, y=value, label=sourceId)) +
+  geom_point() +
+  geom_smooth(aes(group=1), method="lm") +
+  facet_wrap(facets = vars(name), 
+             scales = "free", 
+             ncol= 1) +
+  theme(legend.position = "none")
+
+# plotly::ggplotly(plot_BMI)
+
+plot_WH_sex_specific <- clinical_data %>% 
+  pivot_longer(cols = all_of(non_anthro_measures) & !(WH | BMI)) %>% 
+  ggplot(aes(color=Glu_tol_3_class, x=WH, y=value, label=sourceId)) +
+  geom_point() +
+  geom_smooth(aes(group=1), method="lm") +
+  facet_grid(rows = vars(name), 
+             cols = vars(SEX),
+             scales="free") +
+  theme(legend.position = "none")
+# plotly::ggplotly(plot_WH)
+
+
+plot_WH_non_sex_specific <- clinical_data %>% 
+  pivot_longer(cols = all_of(non_anthro_measures) & !(WH | BMI)) %>% 
+  ggplot(aes(color=Glu_tol_3_class, x=WH, y=value, label=sourceId)) +
+  geom_point() +
+  geom_smooth(aes(group=1), method="lm") +
+  facet_wrap(facets = vars(name),
+             scales = "free",
+             ncol = 1) +
+  theme(legend.position = "none")
+# plotly::ggplotly(plot_WH)
+
+
+# comparison of BMI and WH
+cowplot::plot_grid(plot_BMI, plot_WH_non_sex_specific, ncol = 2)
+
+# Comparison of WH sex and non-sex specific
+cowplot::plot_grid(plot_WH_sex_specific, plot_WH_non_sex_specific, ncol = 2, rel_widths = c(1.7,1))
+
+
+
+```
+
+## Phenotypic distributions
+```{r}
+clinical_data<- get_clinical_data()
+
+clinical_data %>% 
+  pivot_longer(cols = all_of(measures %>% unlist() %>% unname())) %>% 
+  ggplot(aes(x=value)) +
+  geom_density() +
+  facet_wrap(~name,
+             scales = "free") +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+# plot_distributions
+```
+
+# DGE model specification and analysis
+## Models
 ```{r}
 # Insulin sensitivity and secretion model
 # interesting_formula <- "~WBSI + CIR + WBSI:CIR + SEX + AGE"
@@ -6,14 +125,21 @@
 
 # Insulin sensitivity/secretion and WH model
 interesting_formula <- "~WBSI + CIR + WBSI:CIR + WH + SEX + AGE"
-interesting_coefficients <- c("WBSI","CIR","WBSI.CIR", "WH")
+interesting_coefficients <- c("insulin sensitivity index (1-30)"="WBSI",
+                              "insulin response (0.05-40)"="CIR",
+                              "WBSI.CIR"="WBSI.CIR", 
+                              "Waist-to-hip ratio (0.5-1.5)"="WH")
+                              # "SEXFemale"="SEXFemale")
 
 # Insulin sensitivity model only
 # interesting_formula <- "~WBSI + SEX + AGE"
 # interesting_coefficients <- c("WBSI")
+```
 
-results <- run_full_analysis(tissues = c("muscle","fat"),
-                             formulas = interesting_formula)
+## Run or load
+```{r}
+# results <- run_full_analysis(tissues = c("muscle","fat"),
+                             # formulas = interesting_formula)
 
 # results <- readRDS("results_muscle_fat_DI_SEX_AGE_19_13_26.RDS")
 # results <- readRDS("results_muscle_fat_WBSI_CIR_WBSI:CIR_SEX_AGE_19_15_09.RDS")
@@ -83,6 +209,7 @@ for (coefficient in interesting_coefficients) {
 }
 ```
 
+
 # Euler plots
 ## DE 
 ### Bewteen tissues
@@ -97,18 +224,43 @@ for (coefficient in interesting_coefficients) {
   my_plot <- plot(DE_fit, 
                   quantities = TRUE,
                   labels = list(font = 4),
-                  main=str_glue("{coefficient}_DE"))
+                  main=str_glue("Shared DEGs for the {coefficient}-variable"))
+  
+  print(my_plot)
+}
+```
+### Between coefifcients with interesting genes
+```{r, fig.width=5, fig.height=7}
+for (tissue in tissues) {
+  DE_input_list <- map(.x = interesting_coefficients %>% set_names(), 
+                       .f = function(coefficient) 
+                       {
+                         sig_entities <- results[[tissue]][[interesting_formula]]$DGE[[coefficient]] %>%
+                           get_sig_entities_from_df(type = "DE", genes_type = "NCBI")
+                       }
+  )
+  
+  DE_input_list_combined <- c(DE_input_list, list("SLC2A4_TFs"=get_SLC2A4_TFs()))
+  DE_fit <- euler(DE_input_list_combined)
+  
+  my_plot <- plot(DE_fit, 
+                  quantities = TRUE,
+                  labels = list(font = 4),
+                  main=str_glue("Shared DEGs for the {tissue}-tissue"),
+                  legend = list(side = "right"))
   
   print(my_plot)
 }
 ```
 
-## Between coefifcients
-```{r}
+### Between coefifcients
+```{r, fig.width=5, fig.height=7}
 for (tissue in tissues) {
   DE_input_list <- map(.x = interesting_coefficients %>% set_names(), 
-                       .f = function(coefficient) {
-                         sig_entities <- results[[tissue]][[interesting_formula]]$DGE[[coefficient]] %>% get_sig_entities_from_df(type = "DE", genes_type = "NCBI")
+                       .f = function(coefficient) 
+                       {
+                         sig_entities <- results[[tissue]][[interesting_formula]]$DGE[[coefficient]] %>%
+                           get_sig_entities_from_df(type = "DE", genes_type = "NCBI")
                        }
   )
   
@@ -117,13 +269,14 @@ for (tissue in tissues) {
   my_plot <- plot(DE_fit, 
                   quantities = TRUE,
                   labels = list(font = 4),
-                  main=str_glue("{tissue}_DE"))
+                  main=str_glue("Shared DEGs for the {tissue}-tissue"),
+                  legend = list(side = "right"))
   
   print(my_plot)
 }
 ```
 
-## DE with gene categories
+### DE with gene categories
 Half of the exercise genes are differentially regulated in fat, but only one in muscle.
 ```{r}
 exercise_induced_genes_list <- list("exercise_genes"=get_long_term_exercise_induced_genes())
@@ -178,103 +331,6 @@ for (tissue in tissues) {
 ```
 
 
-# Comparing the glucose tolerance groups based on clinical data
-## All
-The glucose tolerance class 3 are more obese, and show many signs of diabetes.
-```{r, fig.height = 10, fig.width=7, warning=FALSE, message=FALSE}
-clinical_data<- get_clinical_data()
-
-measures <- list("insulin_secretion_measures" = c("CIR", "HOMA_B_2.88","Insulinogenic_index","BIGTT_AIR_t_0_60_120"),
-                 "insulin_sensitivty_measures" = c("WBSI","HOMA_IR_156","BIGG_SI_t_0_60_120"),
-                 "disposition_measures" =c("HBA", "DI"),
-                 "anthropologic_measures"=c("WAIST","WH", "WEIGHT","BMI", "HIP", "HEIGHT", "AGE"))
-
-
-imap(measures, 
-     ~{plot_data <- clinical_data %>% 
-       pivot_longer(cols = all_of(.x))
-     
-     box_plot <- plot_data %>% 
-       ggplot(aes(color=Glu_tol_3_class, x=Glu_tol_3_class, y=value, label=sourceId)) +
-       geom_point(size=0.1) +
-       geom_boxplot() +
-       geom_smooth(aes(group=1)) +
-       facet_wrap(facets = vars(name), 
-                  scales = "free") +
-       ggtitle(.y) 
-     
-     corr_plot <- clinical_data %>% 
-       select(all_of(.x)) %>% 
-       drop_na() %>% 
-       cor() %>%
-       ggcorrplot::ggcorrplot(lab = TRUE)
-     
-     cowplot::plot_grid(box_plot, 
-                        corr_plot,
-                        ncol=1)
-     }
-)
-
-non_anthro_measures <- measures[c("insulin_secretion_measures",
-                                  "insulin_sensitivty_measures",
-                                  "disposition_measures")] %>% unlist() %>% unname()
-clinical_data %>% 
-  select(all_of(non_anthro_measures)) %>% 
-  drop_na() %>% 
-  cor() %>%
-  ggcorrplot::ggcorrplot(lab = TRUE)
-
-```
-# Dot plots showing outliers
-```{r, fig.width=10, fig.height=15}
-
-clinical_data<- get_clinical_data()
-
-plot_BMI <- clinical_data %>% 
-  pivot_longer(cols = all_of(non_anthro_measures) & !(WH | BMI)) %>% 
-  ggplot(aes(color=Glu_tol_3_class, x=BMI, y=value, label=sourceId)) +
-  geom_point() +
-  geom_smooth(aes(group=1), method="lm") +
-  facet_wrap(facets = vars(name), 
-             scales = "free", 
-             ncol= 1) +
-  theme(legend.position = "none")
-
-# plotly::ggplotly(plot_BMI)
-
-plot_WH_sex_specific <- clinical_data %>% 
-  pivot_longer(cols = all_of(non_anthro_measures) & !(WH | BMI)) %>% 
-  ggplot(aes(color=Glu_tol_3_class, x=WH, y=value, label=sourceId)) +
-  geom_point() +
-  geom_smooth(aes(group=1), method="lm") +
-  facet_grid(rows = vars(name), 
-             cols = vars(SEX),
-             scales="free") +
-  theme(legend.position = "none")
-# plotly::ggplotly(plot_WH)
-
-
-plot_WH_non_sex_specific <- clinical_data %>% 
-  pivot_longer(cols = all_of(non_anthro_measures) & !(WH | BMI)) %>% 
-  ggplot(aes(color=Glu_tol_3_class, x=WH, y=value, label=sourceId)) +
-  geom_point() +
-  geom_smooth(aes(group=1), method="lm") +
-  facet_wrap(facets = vars(name),
-             scales = "free",
-             ncol = 1) +
-  theme(legend.position = "none")
-# plotly::ggplotly(plot_WH)
-
-
-# comparison of BMI and WH
-cowplot::plot_grid(plot_BMI, plot_WH_non_sex_specific, ncol = 2)
-
-# Comparison of WH sex and non-sex specific
-cowplot::plot_grid(plot_WH_sex_specific, plot_WH_non_sex_specific, ncol = 2, rel_widths = c(1.7,1))
-
-
-
-```
 
 
 # Tables
@@ -283,7 +339,7 @@ cowplot::plot_grid(plot_WH_sex_specific, plot_WH_non_sex_specific, ncol = 2, rel
 for (tissue in tissues) {
   for (coefficient in interesting_coefficients) {
     my_table <- results[[tissue]][[interesting_formula]]$DGE[[coefficient]] %>% 
-      filter(FDR<0.5) %>% 
+      # filter(PValue<0.05) %>% 
       get_DE_datatable_updated(caption=str_glue(str_glue("{tissue}_{coefficient}")))
     
     print(my_table)
@@ -296,7 +352,7 @@ for (tissue in tissues) {
   for (coefficient in interesting_coefficients) {
     my_table <- results[[tissue]][[interesting_formula]]$GO[[coefficient]] %>% 
       filter(FDR<0.5) %>% 
-      get_GO_datatable_updated(caption=str_glue(str_glue("{tissue}_{coefficient}")))
+      get_GO_datatable_updated(caption=str_glue(str_glue("Enriched GO-terms for {coefficient} in {tissue}")))
     
     print(my_table)
   }
@@ -306,14 +362,17 @@ for (tissue in tissues) {
 ## DE
 ```{r}
 for (tissue in tissues) {
-  for (coefficient in interesting_coefficients) {
-    my_plot <- results[[tissue]][[interesting_formula]]$DGE[[coefficient]] %>% 
-      ggplot_volcano_updated(only_sig = T, 
-                             highlight_genes = c("MYH1", "MYH4"), 
-                             title = str_glue("{tissue}_{coefficient}"))
-    print(my_plot)
-  }
+  imap(interesting_coefficients,
+       ~{
+         my_data <- results[[tissue]][[interesting_formula]]$DGE[[.x]]
+         
+         my_plot <- my_data %>%  
+           ggplot_volcano_updated(only_nom_sig = T,
+                                  only_FDR_sig = F,
+                                  highlight_genes = get_SLC2A4_TFs(), 
+                                  title = str_glue("Effect of 1-increase in {.y} in {tissue}"))
+         print(my_plot)
+       }
+  )
 }
 ```
-
-
