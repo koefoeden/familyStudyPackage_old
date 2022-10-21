@@ -1,4 +1,165 @@
+# Libraries
 ```{r}
+suppressPackageStartupMessages({
+  library(GenomeInfoDb)
+  library(EnsDb.Hsapiens.v86)
+  library(BSgenome.Hsapiens.UCSC.hg38)
+  library(Signac)
+  library(Seurat)
+  library(mclust)
+  library(harmony)
+})
+```
+
+# Load multiome data
+```{r message=FALSE, warning=FALSE}
+# create the RNA and ATAC data
+# mucle <- create_multimodal_object()
+
+# load the RNA and ATAC data
+muscle <- qs::qread(file = "data/seur_stats_dimreducs_clusters.qs")
+```
+
+# Add stats
+```{r}
+muscle <- add_stats_and_save(muscle)
+```
+
+# QC
+```{r, fig.width=10, fig.height=5}
+plot_violin_plots_of_meta_data(muscle)
+```
+
+# filter and new QC
+```{r}
+DefaultAssay(muscle) <- "RNA"
+muscle_sub <- subset(
+  x = muscle,
+  subset = blacklist < 0.01 &
+    fragments > 1e4 &
+    FRiP > 0.5 &
+    nCount_ATAC > 1e4 &
+    nCount_RNA > 1e2 &
+    nFeature_ATAC >= 5e3 &
+    nFeature_RNA >= 1e2 &
+    nucleosome_percentile < 1 &
+    nucleosome_signal > 0.25 &
+    percent.mt < 5 &
+    TSS.enrichment > 2 &
+    TSS.percentile < 1
+)
+plot_violin_plots_of_meta_data(muscle_sub)
+```
+
+# Processing
+## Varaible features, SCTransform, dimension reductions
+```{r}
+muscle_sub <- add_var_features_transform_dim_reducs_and_save(seur_obj = muscle_sub)
+muscle_sub <- add_WNN_UMAP_clusters(muscle_sub)
+```
+
+# Plots
+## UMAP colored by cluster identity
+```{r}
+DimPlot(muscle_sub, reduction = "pre_rna", group.by = "seurat_clusters", shuffle = TRUE) + labs(title="RNA", x="UMAP1", y="UMAP2")
+DimPlot(muscle_sub, reduction = "pre_atac", group.by = "seurat_clusters", shuffle = TRUE) + labs(title="ATAC", x="UMAP1", y="UMAP2")
+DimPlot(muscle_sub, reduction = "umap_wnn", group.by = "seurat_clusters", shuffle = TRUE) + labs(title="WNN", x="UMAP1", y="UMAP2")
+```
+## UMAP colored by gene expression
+```{r}
+DefaultAssay(muscle_sub) <- "RNA"
+cell_type_markers <- c("Myocyte"="MYH4",
+                       "Myocyte"="MYH1",
+                       "B cell"="CD22",
+                       "T cell"="CD3E",
+                       "Macrophage"="ITGAM",
+                       "Satellite cell"="VCAM1",
+                       "Endothelial"="PECAM1")
+
+plots <- FeaturePlot(muscle_sub, 
+                     features = cell_type_markers, 
+                     combine = F,)
+
+plots <- imap(plots, ~{
+  .x + 
+    ggtitle(str_glue("{names(cell_type_markers)[[.y]]} {cell_type_markers[[.y]]}")) +
+    labs(x="", y="")
+}
+)
+plots
+```
+
+# Download and preprocess reference data
+```{r}
+# muscle h5ad file from https://figshare.com/articles/dataset/Tabula_Sapiens_release_1_0/14267219
+
+
+SeuratDisk::Convert(source = "data-raw/TS_Muscle.h5ad", 
+                    dest = "data-raw/TS_Muscle.h5seurat", 
+                    assay = "RNA",
+                    overwrite = TRUE)
+
+
+reference <- SeuratDisk::LoadH5Seurat("data-raw/TS_Muscle.h5seurat", misc=F)
+
+qs::qsave(reference, file = "data/seur_reference.qs", preset = "fast")
+reference <- qs::qread(file = "data/seur_reference.qs")
+```
+
+# Process reference data
+```{r}
+# normalize and run dimensionality reduction on control dataset
+reference <- SCTransform(reference, vst.flavor = "v2", 
+                         verbose = FALSE, 
+                         conserve.memory = TRUE)
+
+RunPCA(npcs = 30, verbose = FALSE, ) %>%
+  RunUMAP(reduction = "pca", dims = 1:30, verbose = FALSE) %>%
+  FindNeighbors(reduction = "pca", dims = 1:30, verbose = FALSE) %>%
+  FindClusters(resolution = 0.7, verbose = FALSE)
+```
+
+# Integration
+```{r}
+features <- SelectIntegrationFeatures(object.list = list(reference, muscle_sub), 
+                                      nfeatures = 3000)
+
+ifnb.list <- PrepSCTIntegration(object.list = list(reference, muscle_sub),
+                                anchor.features = features)
+
+anchors <- FindIntegrationAnchors(object.list = ifnb.list, 
+                                  normalization.method = "SCT",
+                                  anchor.features = features)
+
+combined <- IntegrateData(anchorset = anchors, normalization.method = "SCT")
+
+
+
+
+```
+
+# Label transfer
+```{r}
+anchors <- FindTransferAnchors(
+  reference = reference,
+  query = muscle_sub,
+  normalization.method = "SCT",
+  reference.reduction = "spca",
+  dims = 1:50
+)
+
+muscle_sub <- MapQuery(
+  anchorset = anchors,
+  query = muscle_sub,
+  reference = reference,
+  refdata = list(
+    celltype.l1 = "celltype.l1",
+    celltype.l2 = "celltype.l2",
+    predicted_ADT = "ADT"
+  ),
+  reference.reduction = "spca", 
+  reduction.model = "wnn.umap"
+)
 
 ```
 
