@@ -6,7 +6,6 @@ suppressPackageStartupMessages({
   library(BSgenome.Hsapiens.UCSC.hg38)
   library(Signac)
   library(Seurat)
-  library(mclust)
   library(harmony)
 })
 ```
@@ -17,7 +16,10 @@ suppressPackageStartupMessages({
 # mucle <- create_multimodal_object()
 
 # load the RNA and ATAC data
-muscle <- qs::qread(file = "data/seur_stats_dimreducs_clusters.qs")
+muscle_sub <- qs::qread(file = "data/seur_stats_dimreducs_clusters.qs")
+reference <- qs::qread(file = "data/seur_reference_clusters.qs")
+
+
 ```
 
 # Add stats
@@ -91,32 +93,30 @@ plots
 
 # Download and preprocess reference data
 ```{r}
-# muscle h5ad file from https://figshare.com/articles/dataset/Tabula_Sapiens_release_1_0/14267219
-
-
-SeuratDisk::Convert(source = "data-raw/TS_Muscle.h5ad", 
-                    dest = "data-raw/TS_Muscle.h5seurat", 
-                    assay = "RNA",
-                    overwrite = TRUE)
-
-
-reference <- SeuratDisk::LoadH5Seurat("data-raw/TS_Muscle.h5seurat", misc=F)
-
-qs::qsave(reference, file = "data/seur_reference.qs", preset = "fast")
-reference <- qs::qread(file = "data/seur_reference.qs")
+# # muscle h5ad file from https://figshare.com/articles/dataset/Tabula_Sapiens_release_1_0/14267219
+# 
+# 
+# SeuratDisk::Convert(source = "data-raw/TS_Muscle.h5ad", 
+#                     dest = "data-raw/TS_Muscle.h5seurat", 
+#                     assay = "RNA",
+#                     overwrite = TRUE)
+# 
+# 
+# reference <- SeuratDisk::LoadH5Seurat("data-raw/TS_Muscle.h5seurat", misc=F)
+# 
+# qs::qsave(reference, file = "data/seur_reference.qs", preset = "fast")
 ```
 
 # Process reference data
 ```{r}
 # normalize and run dimensionality reduction on control dataset
-reference <- SCTransform(reference, vst.flavor = "v2", 
-                         verbose = FALSE, 
-                         conserve.memory = TRUE)
-
-RunPCA(npcs = 30, verbose = FALSE, ) %>%
+reference <- SCTransform(reference, vst.flavor = "v2") %>%
+  RunPCA(npcs = 30, verbose = FALSE) %>%
   RunUMAP(reduction = "pca", dims = 1:30, verbose = FALSE) %>%
   FindNeighbors(reduction = "pca", dims = 1:30, verbose = FALSE) %>%
   FindClusters(resolution = 0.7, verbose = FALSE)
+
+qs::qsave(x = reference, file = "data/seur_reference_clusters.qs", preset = "fast")
 ```
 
 # Integration
@@ -144,8 +144,8 @@ anchors <- FindTransferAnchors(
   reference = reference,
   query = muscle_sub,
   normalization.method = "SCT",
-  reference.reduction = "spca",
-  dims = 1:50
+  reference.reduction = "pca",
+  dims = 1:30
 )
 
 muscle_sub <- MapQuery(
@@ -153,12 +153,11 @@ muscle_sub <- MapQuery(
   query = muscle_sub,
   reference = reference,
   refdata = list(
-    celltype.l1 = "celltype.l1",
-    celltype.l2 = "celltype.l2",
+    free_annotation = "free_annotation",
     predicted_ADT = "ADT"
   ),
-  reference.reduction = "spca", 
-  reduction.model = "wnn.umap"
+  reference.reduction = "pca", 
+  reduction.model = "umap"
 )
 
 ```
